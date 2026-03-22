@@ -275,6 +275,8 @@ function renderMathText(text: string): string {
     } catch { return math }
   })
 
+  // Convert literal \n (two chars) and real newlines to <br/>
+  result = result.replace(/\\n/g, '<br/>')
   result = result.replace(/\n/g, '<br/>')
   return result
 }
