@@ -35,6 +35,14 @@ function renderMathInText(text: string): string {
     .replace(/\*\*/g, '')            // Remove markdown bold markers
     .replace(/^[\s\n]+|[\s\n]+$/g, '') // Trim leading/trailing whitespace
 
+  // Fix double-escaped LaTeX: \\frac -> \frac, \\sqrt -> \sqrt, etc.
+  // This handles cases where JSON parsing preserved double backslashes
+  result = result.replace(/\\\\(frac|sqrt|theta|alpha|beta|gamma|delta|pi|omega|times|div|pm|leq|geq|neq|approx|sin|cos|tan|log|ln|lim|sum|prod|int|infty|cdot|circ|angle|triangle|perp|parallel|vec|overline|overrightarrow|hat|bar|dot|ddot|text|mathrm|mathbf|left|right|begin|end|quad|qquad|hspace|vspace|displaystyle)/g, '\\$1')
+
+  // Detect bare LaTeX commands not wrapped in $...$ and wrap them
+  // Match patterns like \frac{...}{...}, \sqrt{...}, etc. that are NOT inside $...$
+  result = wrapBareLatex(result)
+
   // Replace display math $$...$$
   result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
     try {
@@ -95,4 +103,36 @@ function renderMathInText(text: string): string {
   result = result.replace(/\n/g, '<br/>')
 
   return result
+}
+
+/**
+ * Detect bare LaTeX commands (not wrapped in $...$) and wrap them.
+ * This handles cases where AI outputs \frac{a}{b} without dollar signs.
+ */
+function wrapBareLatex(text: string): string {
+  // Skip if no backslash-commands exist outside of $...$
+  // First, temporarily replace already-wrapped math
+  const mathPlaceholders: string[] = []
+  let temp = text.replace(/\$\$[\s\S]*?\$\$/g, (m) => {
+    mathPlaceholders.push(m)
+    return `\x00MATH${mathPlaceholders.length - 1}\x00`
+  })
+  temp = temp.replace(/\$[^\$\n]+?\$/g, (m) => {
+    mathPlaceholders.push(m)
+    return `\x00MATH${mathPlaceholders.length - 1}\x00`
+  })
+
+  // Now check if there are bare LaTeX commands
+  const latexCmdPattern = /\\(frac|sqrt|theta|alpha|beta|gamma|delta|pi|omega|times|div|pm|leq|geq|neq|approx|sin|cos|tan|log|ln|lim|sum|prod|int|infty|cdot|circ|angle|triangle|perp|parallel|vec|overline|overrightarrow)\b/
+  if (latexCmdPattern.test(temp)) {
+    // Wrap sequences of LaTeX commands and their arguments in $...$
+    temp = temp.replace(/(\\(?:frac|sqrt|theta|alpha|beta|gamma|delta|pi|omega|times|div|pm|leq|geq|neq|approx|sin|cos|tan|log|ln|lim|sum|prod|int|infty|cdot|circ|angle|triangle|perp|parallel|vec|overline|overrightarrow)(?:\{[^}]*\})*(?:\[[^\]]*\])?(?:\{[^}]*\})*(?:[_^]\{[^}]*\})*)/g, (match) => {
+      return `$${match}$`
+    })
+  }
+
+  // Restore math placeholders
+  temp = temp.replace(/\x00MATH(\d+)\x00/g, (_, idx) => mathPlaceholders[parseInt(idx)])
+
+  return temp
 }
