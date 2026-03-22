@@ -12,12 +12,14 @@ export default function UploadPanel({ image, onUpload, loading }: Props) {
   const [dragOver, setDragOver] = useState(false)
 
   const processFile = useCallback((file: File) => {
-    if (!file.type.startsWith('image/')) {
-      alert('请上传图片文件（JPG、PNG、BMP等）')
+    const isImage = file.type.startsWith('image/')
+    const isPDF = file.type === 'application/pdf'
+    if (!isImage && !isPDF) {
+      alert('请上传图片（JPG、PNG、BMP）或 PDF 文件')
       return
     }
     if (file.size > 10 * 1024 * 1024) {
-      alert('图片大小不能超过10MB')
+      alert('文件大小不能超过10MB')
       return
     }
 
@@ -128,10 +130,13 @@ export default function UploadPanel({ image, onUpload, loading }: Props) {
               </svg>
             </div>
             <p className="text-gray-600 font-medium mb-1">
-              {dragOver ? '松开即可上传' : '点击或拖拽上传错题图片'}
+              {dragOver ? '松开即可上传' : '点击或拖拽上传错题'}
             </p>
             <p className="text-xs text-gray-400">
-              支持 JPG、PNG、BMP 格式，也可以直接粘贴截图
+              支持 JPG、PNG、BMP、PDF 格式，也可以直接粘贴截图
+            </p>
+            <p className="text-xs text-amber-500 mt-1.5 font-medium">
+              每次只允许上传 1 道题目（错题专项训练）
             </p>
             <p className="text-xs text-gray-400 mt-1">
               最大 10MB
@@ -143,7 +148,7 @@ export default function UploadPanel({ image, onUpload, loading }: Props) {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,.pdf"
         onChange={handleFileChange}
         className="hidden"
       />

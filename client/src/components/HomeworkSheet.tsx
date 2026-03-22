@@ -113,6 +113,7 @@ function QuestionBlock({ question, number }: { question: GeneratedQuestion; numb
 
   // 只有真正的SVG才显示，描述文本不显示
   const hasFigure = question.figure && question.figure.trim().startsWith('<svg')
+  const figureLoading = question.figure && question.figure.trim().length > 0 && !question.figure.trim().startsWith('<svg')
 
   return (
     <div className="question-block">
@@ -127,6 +128,16 @@ function QuestionBlock({ question, number }: { question: GeneratedQuestion; numb
           {question.options.map((opt, i) => (
             <OptionItem key={i} label={String.fromCharCode(65 + i)} content={opt} />
           ))}
+        </div>
+      )}
+
+      {/* 图形加载提示 */}
+      {figureLoading && (
+        <div className="figure-container" style={{ border: '1px dashed #d1d5db', borderRadius: '4px', background: '#f9fafb', padding: '16px', textAlign: 'center' }}>
+          <div style={{ color: '#9ca3af', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+            <span className="figure-spinner" />
+            题目图形生成中，请稍等…
+          </div>
         </div>
       )}
 

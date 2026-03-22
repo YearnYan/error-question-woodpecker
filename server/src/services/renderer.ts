@@ -1,5 +1,6 @@
 import { chatWithText } from './ai.js'
 import { getCacheKey, getFromCache, setCache } from './cache.js'
+import { getFigureConstraints } from '../prompts/figure-constraints.js'
 
 /**
  * Render SVG graphics for a question based on its stem and figure description.
@@ -14,26 +15,43 @@ export async function renderFigure(
   const cached = getFromCache(cacheKey)
   if (cached) return cached
 
-  const systemPrompt = `你是一个专业的SVG图形生成器，专门为${subject}学科的题目生成精准的矢量图形。
+  const constraints = getFigureConstraints(subject)
 
-要求：
+  const systemPrompt = `你是一个专业的SVG图形生成器，专门为${subject}学科的题目生成精准、符合学科规范的矢量图形。
+
+# 核心原则
+图形必须在物理/化学/数学/生物等学科上**完全成立**，不允许"看起来像但实际错误"的图形。
+务必严格遵守${subject}学科的图形约束规范，确保图形的准确性和可用性。
+
+${constraints.hardRules}
+
+${constraints.commonMistakes}
+
+${constraints.svgTechnical}
+
+# SVG通用技术要求
 1. 只输出纯SVG代码，以<svg开头，以</svg>结尾，不要包含任何其他文本、解释或markdown标记
-2. SVG必须有合理的viewBox（建议 0 0 300 200 或根据内容调整）
-3. 使用黑色线条(stroke="#000")，白色或无背景
-4. 文字标注用<text>元素，font-family="SimSun, serif"，字体大小12-14px
-5. 线条粗细适中(stroke-width="1.5")
-6. 几何图形要准确标注关键点名（A、B、C等）、角度、长度
-7. 坐标系要有刻度线、箭头和轴标签
-8. 图形必须与题干和图形描述完全匹配，所有提到的元素都要画出来
-9. 不要使用外部资源、链接或<image>标签
-10. 确保SVG是自包含的、可以直接在浏览器中渲染的`
+2. SVG必须有合理的viewBox（建议 0 0 400 300 或根据内容调整，确保图形不被裁切）
+3. 使用黑色线条(stroke="#000" 或 stroke="#333")，白色或透明背景(fill="none" 或 fill="#fff")
+4. 线条粗细适中(stroke-width="1.5" 到 "2")
+5. 图形必须与题干和图形描述**完全精确匹配**，所有提到的元素都要画出来
+6. 不要使用外部资源、链接或<image>标签
+7. 确保SVG是自包含的、可以直接在浏览器中渲染的
+8. 所有文字必须清晰可读，不与线条重叠
+9. 关键点、线段、角度、标注必须精确对应题目要求
+10. 如果是示意图而非按比例图，也要保持视觉上的合理性
+
+# 失败处理
+如果题目要求的图形无法满足学科约束（如电路不连通、受力方向错误、几何关系矛盾等），
+则返回空字符串，不要输出错误的图形。`
 
   const userPrompt = `请为以下${subject}题目生成精准的SVG图形。
 
 题干：${stem}
 ${figureDescription ? `\n图形详细描述：${figureDescription}` : ''}
 
-请根据题干和图形描述，生成一个精准匹配的SVG矢量图。只输出SVG代码，不要任何其他内容。`
+请严格遵守${subject}学科的图形约束规范，生成一个精准匹配的SVG矢量图。
+只输出SVG代码，不要任何其他内容。如果无法生成符合约束的图形，返回空字符串。`
 
   try {
     const response = await chatWithText(systemPrompt, userPrompt, {
