@@ -8,20 +8,5 @@ import { renderHomeworkHTML } from './html-renderer.js'
  */
 export async function exportToWord(homework: HomeworkData): Promise<Buffer> {
   const html = renderHomeworkHTML(homework)
-
-  // Wrap in Word-compatible MHTML envelope
-  const wordHtml = `
-MIME-Version: 1.0
-Content-Type: multipart/related; boundary="----=_NextPart_BOUNDARY"
-
-------=_NextPart_BOUNDARY
-Content-Type: text/html; charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-
-${html}
-
-------=_NextPart_BOUNDARY--
-  `.trim()
-
-  return Buffer.from(wordHtml, 'utf-8')
+  return Buffer.from(html, 'utf-8')
 }
