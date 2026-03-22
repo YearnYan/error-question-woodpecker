@@ -7,6 +7,97 @@ interface Props {
   homework: HomeworkData
 }
 
+function getPrintStyles(): string {
+  return `
+    .homework-sheet {
+      background: white;
+      width: 210mm;
+      min-height: 297mm;
+      padding: 20mm 18mm 25mm 18mm;
+      margin: 0 auto;
+      font-family: 'SimSun', 'STSong', 'Songti SC', 'Noto Serif CJK SC', serif;
+      font-size: 11pt;
+      line-height: 1.8;
+      color: #000;
+      position: relative;
+    }
+    .homework-header {
+      text-align: center;
+      border-bottom: 2px solid #000;
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+    }
+    .homework-header .title {
+      font-size: 16pt;
+      font-weight: bold;
+      letter-spacing: 4px;
+      margin-bottom: 4px;
+    }
+    .homework-header .subtitle { font-size: 11pt; color: #333; }
+    .homework-header .info-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10pt;
+      margin-top: 8px;
+      color: #444;
+    }
+    .homework-header .info-row .info-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .homework-header .info-row .underline-blank {
+      display: inline-block;
+      width: 80px;
+      border-bottom: 1px solid #000;
+    }
+    .section-title {
+      font-size: 12pt;
+      font-weight: bold;
+      margin: 18px 0 10px 0;
+    }
+    .section-badge {
+      display: inline-block;
+      background: #1a1a1a;
+      color: #fff;
+      font-size: 9pt;
+      padding: 1px 8px;
+      border-radius: 2px;
+      margin-right: 8px;
+      font-weight: normal;
+      vertical-align: middle;
+    }
+    .question-block { margin-bottom: 16px; }
+    .question-number { font-weight: bold; margin-right: 6px; }
+    .question-stem { text-align: justify; margin-bottom: 6px; }
+    .question-options { padding-left: 2em; margin-bottom: 6px; }
+    .question-options .option-item { margin-bottom: 2px; }
+    .answer-area { margin-top: 8px; padding-top: 4px; }
+    .figure-container {
+      display: flex;
+      justify-content: center;
+      margin: 10px 0;
+      padding: 8px;
+    }
+    .figure-container svg { max-width: 100%; max-height: 200px; }
+    .homework-footer {
+      position: absolute;
+      bottom: 15mm;
+      left: 0; right: 0;
+      text-align: center;
+      font-size: 9pt;
+      color: #999;
+    }
+    .section-divider {
+      border: none;
+      border-top: 1px dashed #ccc;
+      margin: 15px 0;
+    }
+    .figure-spinner { display: none; }
+    .katex { font-size: 1em; }
+  `
+}
+
 export default function HomeworkPreview({ homework }: Props) {
   const sheetRef = useRef<HTMLDivElement>(null)
 
@@ -28,13 +119,43 @@ export default function HomeworkPreview({ homework }: Props) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `举一反三练习_${homework.subject}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.docx`
+      a.download = `举一反三练习_${homework.subject}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.doc`
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
       console.error('Word export failed:', err)
       alert('导出Word文档失败，请重试')
     }
+  }, [homework])
+
+  const handleExportPDF = useCallback(() => {
+    const content = sheetRef.current
+    if (!content) return
+
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      alert('请允许弹出窗口以导出PDF')
+      return
+    }
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>举一反三练习 - ${homework.subject}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: white; }
+    @page { size: A4; margin: 0; }
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    ${getPrintStyles()}
+  </style>
+</head>
+<body>${content.innerHTML}</body>
+</html>`)
+    printWindow.document.close()
+    setTimeout(() => printWindow.print(), 600)
   }, [homework])
 
   return (
@@ -56,6 +177,15 @@ export default function HomeworkPreview({ homework }: Props) {
               <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             下载 WORD
+          </button>
+          <button
+            onClick={handleExportPDF}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            下载 PDF
           </button>
         </div>
       </div>
