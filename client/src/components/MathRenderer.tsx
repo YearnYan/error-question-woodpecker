@@ -29,8 +29,11 @@ export default function MathRenderer({ content, block = false }: Props) {
 function renderMathInText(text: string): string {
   if (!text) return ''
 
-  // Split by display math ($$...$$) first, then inline math ($...$)
+  // Clean up markdown artifacts and literal escape sequences
   let result = text
+    .replace(/\\n/g, '\n')           // Convert literal \n to actual newline
+    .replace(/\*\*/g, '')            // Remove markdown bold markers
+    .replace(/^[\s\n]+|[\s\n]+$/g, '') // Trim leading/trailing whitespace
 
   // Replace display math $$...$$
   result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {

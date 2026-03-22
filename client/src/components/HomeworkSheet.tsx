@@ -111,8 +111,8 @@ function QuestionBlock({ question, number }: { question: GeneratedQuestion; numb
     console.log(`[HomeworkSheet] Q${number} figure: exists=${!!question.figure}, isSVG=${isSVG}, len=${fig.length}, preview="${fig.substring(0, 100)}"`)
   }, [question.figure, number])
 
-  // 确保SVG正确渲染
-  const hasFigure = question.figure && question.figure.trim().length > 0
+  // 只有真正的SVG才显示，描述文本不显示
+  const hasFigure = question.figure && question.figure.trim().startsWith('<svg')
 
   return (
     <div className="question-block">
@@ -130,7 +130,7 @@ function QuestionBlock({ question, number }: { question: GeneratedQuestion; numb
         </div>
       )}
 
-      {/* 图形 */}
+      {/* 图形 - 只渲染SVG，不显示描述文本 */}
       {hasFigure && (
         <div className="figure-container" style={{ border: '1px solid #eee', borderRadius: '4px', background: '#fafafa' }}>
           <div
@@ -141,12 +141,8 @@ function QuestionBlock({ question, number }: { question: GeneratedQuestion; numb
         </div>
       )}
 
-      {/* 答题区域 */}
-      <div className="answer-area">
-        {Array.from({ length: question.answerArea || 3 }).map((_, i) => (
-          <div key={i} className="answer-line" />
-        ))}
-      </div>
+      {/* 答题留白区域 */}
+      <div className="answer-area" style={{ height: `${(question.answerArea || 3) * 28}px` }} />
     </div>
   )
 }

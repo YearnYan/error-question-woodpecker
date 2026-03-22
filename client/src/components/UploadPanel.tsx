@@ -87,7 +87,7 @@ export default function UploadPanel({ image, onUpload, loading }: Props) {
 
       {image ? (
         <div className="p-4">
-          <div className="relative group">
+          <div className="relative">
             <img
               src={image.previewUrl}
               alt="错题图片"
@@ -95,9 +95,12 @@ export default function UploadPanel({ image, onUpload, loading }: Props) {
             />
             <button
               onClick={handleClick}
-              className="absolute top-2 right-2 bg-white/90 hover:bg-white text-gray-600 text-xs px-3 py-1.5 rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute top-3 right-3 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
             >
-              更换图片
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              上传题目
             </button>
           </div>
           <p className="text-xs text-gray-400 mt-2 text-center">
