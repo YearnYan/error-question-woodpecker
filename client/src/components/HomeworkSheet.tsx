@@ -97,11 +97,22 @@ export default function HomeworkSheet({ homework }: Props) {
 
 function QuestionBlock({ question, number }: { question: GeneratedQuestion; number: number }) {
   const stemRef = useRef<HTMLDivElement>(null)
+  const figureRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!stemRef.current) return
     stemRef.current.innerHTML = renderMathText(question.stem)
   }, [question.stem])
+
+  // 调试：检查figure字段
+  useEffect(() => {
+    const fig = question.figure || ''
+    const isSVG = fig.trim().startsWith('<svg')
+    console.log(`[HomeworkSheet] Q${number} figure: exists=${!!question.figure}, isSVG=${isSVG}, len=${fig.length}, preview="${fig.substring(0, 100)}"`)
+  }, [question.figure, number])
+
+  // 确保SVG正确渲染
+  const hasFigure = question.figure && question.figure.trim().length > 0
 
   return (
     <div className="question-block">
@@ -120,9 +131,13 @@ function QuestionBlock({ question, number }: { question: GeneratedQuestion; numb
       )}
 
       {/* 图形 */}
-      {question.figure && (
-        <div className="figure-container">
-          <div dangerouslySetInnerHTML={{ __html: question.figure }} />
+      {hasFigure && (
+        <div className="figure-container" style={{ border: '1px solid #eee', borderRadius: '4px', background: '#fafafa' }}>
+          <div
+            ref={figureRef}
+            dangerouslySetInnerHTML={{ __html: question.figure! }}
+            style={{ width: '100%', display: 'flex', justifyContent: 'center' }}
+          />
         </div>
       )}
 

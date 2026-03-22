@@ -1,9 +1,15 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type { UploadedImage, AnalysisResult, HomeworkData, LoadingState, Subject } from './types'
 import UploadPanel from './components/UploadPanel'
 import AnalysisResultPanel from './components/AnalysisResult'
 import HomeworkPreview from './components/HomeworkPreview'
 import LoadingSkeleton from './components/LoadingSkeleton'
+
+interface ProgressInfo {
+  phase: string
+  message: string
+  percent: number
+}
 
 function App() {
   const [image, setImage] = useState<UploadedImage | null>(null)
@@ -12,6 +18,22 @@ function App() {
   const [loadingState, setLoadingState] = useState<LoadingState>('idle')
   const [error, setError] = useState<string>('')
   const [mobileView, setMobileView] = useState<'left' | 'right'>('left')
+  const [progress, setProgress] = useState<ProgressInfo | null>(null)
+  const [elapsed, setElapsed] = useState(0)
+  const abortRef = useRef<AbortController | null>(null)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Timer for loading states
+  useEffect(() => {
+    if (loadingState !== 'idle') {
+      setElapsed(0)
+      timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000)
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [loadingState])
 
   const handleImageUpload = useCallback((uploaded: UploadedImage) => {
     setImage(uploaded)
@@ -47,24 +69,90 @@ function App() {
     setLoadingState('generating')
     setError('')
     setHomework(null)
+    setProgress({ phase: 'starting', message: '正在连接...', percent: 5 })
+
+    const abort = new AbortController()
+    abortRef.current = abort
 
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image: image.base64,
-          analysis,
-        }),
+        body: JSON.stringify({ image: image.base64, analysis }),
+        signal: abort.signal,
       })
-      const data = await res.json()
-      if (!data.success) throw new Error(data.error || '生成失败')
-      setHomework(data.data)
-      setMobileView('right')
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error || '生成失败')
+      }
+
+      const reader = res.body?.getReader()
+      if (!reader) throw new Error('浏览器不支持流式读取')
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let currentHomework: HomeworkData | null = null
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+
+        // Parse SSE events from buffer
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+        let eventType = ''
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7).trim()
+          } else if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6)
+            try {
+              const data = JSON.parse(dataStr)
+
+              if (eventType === 'progress') {
+                setProgress(data)
+              } else if (eventType === 'questions') {
+                // Questions ready (without figures) — show immediately
+                currentHomework = { ...data }
+                setHomework({ ...data })
+                setMobileView('right')
+              } else if (eventType === 'figure') {
+                // Individual figure arrived — patch into homework
+                if (currentHomework) {
+                  const { section, index, svg } = data
+                  const sectionArr = currentHomework[section as keyof HomeworkData] as any[]
+                  if (sectionArr && sectionArr[index]) {
+                    sectionArr[index].figure = svg
+                    setHomework({ ...currentHomework })
+                  }
+                }
+              } else if (eventType === 'done') {
+                currentHomework = data
+                setHomework({ ...data })
+                setProgress({ phase: 'done', message: '生成完成', percent: 100 })
+              } else if (eventType === 'error') {
+                throw new Error(data.error || '生成失败')
+              }
+            } catch (parseErr: any) {
+              if (parseErr.message?.includes('生成失败')) throw parseErr
+              // Ignore JSON parse errors for incomplete data
+            }
+            eventType = ''
+          }
+        }
+      }
     } catch (err: any) {
-      setError(err.message || '生成请求失败，请重试')
+      if (err.name !== 'AbortError') {
+        setError(err.message || '生成请求失败，请重试')
+      }
     } finally {
       setLoadingState('idle')
+      setProgress(null)
+      abortRef.current = null
     }
   }, [analysis, image])
 
@@ -219,10 +307,30 @@ function App() {
           <div className={`w-full lg:flex-1 ${
             mobileView === 'left' ? 'hidden lg:block' : ''
           }`}>
-            {loadingState === 'generating' ? (
-              <LoadingSkeleton />
+            {loadingState === 'generating' && !homework ? (
+              <LoadingSkeleton progress={progress} />
             ) : homework ? (
-              <HomeworkPreview homework={homework} />
+              <div>
+                {progress && progress.phase !== 'done' && (
+                  <div className="mb-4 bg-white rounded-2xl shadow-sm border border-gray-100 px-5 py-3">
+                    <div className="flex items-center gap-3">
+                      <svg className="animate-spin h-4 w-4 text-primary-500" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                      </svg>
+                      <span className="text-sm text-gray-600">{progress.message}</span>
+                      <div className="flex-1 bg-gray-200 rounded-full h-2 ml-2">
+                        <div
+                          className="bg-primary-500 h-2 rounded-full transition-all duration-500"
+                          style={{ width: `${progress.percent}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-400 ml-2">{progress.percent}%</span>
+                    </div>
+                  </div>
+                )}
+                <HomeworkPreview homework={homework} />
+              </div>
             ) : (
               <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 min-h-[600px] flex flex-col items-center justify-center text-gray-400">
                 <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="mb-4 text-gray-300">
