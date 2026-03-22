@@ -9,6 +9,8 @@ export interface GeneratedQuestion {
   options?: string[] | null
   figure?: string | null
   answerArea: number
+  answer?: string | null
+  solution?: string | null
 }
 
 export interface HomeworkData {
@@ -78,6 +80,8 @@ function normalizeQuestions(
     options: Array.isArray(q.options) ? q.options : null,
     figure: q.figure || null,
     answerArea: q.answerArea || (q.options ? 1 : 4),
+    answer: q.answer || null,
+    solution: q.solution || null,
   }))
 }
 

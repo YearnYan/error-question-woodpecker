@@ -26,6 +26,8 @@ export interface GeneratedQuestion {
   options?: string[];
   figure?: string; // SVG string or data URL
   answerArea: number; // number of answer lines
+  answer?: string; // 答案
+  solution?: string; // 解析
 }
 
 export interface HomeworkData {

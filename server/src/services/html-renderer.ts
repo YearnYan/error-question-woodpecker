@@ -125,27 +125,38 @@ function renderQuestion(question: GeneratedQuestion, number: number): string {
 
 function renderMathText(text: string): string {
   if (!text) return ''
-  let result = escapeHtml(text)
 
-  // $$...$$ display math
+  // Split text into math and non-math segments, only escape non-math parts
+  let result = text
+
+  // Temporarily replace math delimiters with placeholders
+  const mathBlocks: string[] = []
+  // $$...$$
   result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
-    return `<span data-math="${escapeHtml(math.trim())}" data-display="true"></span>`
+    mathBlocks.push(`<span data-math="${escapeHtml(math.trim())}" data-display="true"></span>`)
+    return `\x00MATH${mathBlocks.length - 1}\x00`
   })
-
-  // $...$ inline math
+  // $...$
   result = result.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
-    return `<span data-math="${escapeHtml(math.trim())}" data-display="false"></span>`
+    mathBlocks.push(`<span data-math="${escapeHtml(math.trim())}" data-display="false"></span>`)
+    return `\x00MATH${mathBlocks.length - 1}\x00`
   })
-
   // \[...\]
   result = result.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => {
-    return `<span data-math="${escapeHtml(math.trim())}" data-display="true"></span>`
+    mathBlocks.push(`<span data-math="${escapeHtml(math.trim())}" data-display="true"></span>`)
+    return `\x00MATH${mathBlocks.length - 1}\x00`
   })
-
   // \(...\)
   result = result.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => {
-    return `<span data-math="${escapeHtml(math.trim())}" data-display="false"></span>`
+    mathBlocks.push(`<span data-math="${escapeHtml(math.trim())}" data-display="false"></span>`)
+    return `\x00MATH${mathBlocks.length - 1}\x00`
   })
+
+  // Escape non-math text
+  result = escapeHtml(result)
+
+  // Restore math blocks
+  result = result.replace(/\x00MATH(\d+)\x00/g, (_, idx) => mathBlocks[parseInt(idx)])
 
   result = result.replace(/\n/g, '<br/>')
   return result

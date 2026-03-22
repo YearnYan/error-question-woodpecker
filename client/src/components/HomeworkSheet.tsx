@@ -4,6 +4,7 @@ import katex from 'katex'
 
 interface Props {
   homework: HomeworkData
+  showAnswers?: boolean
 }
 
 const SECTION_CONFIG = [
@@ -12,7 +13,7 @@ const SECTION_CONFIG = [
   { key: 'comprehensive' as const, label: '综合应用题', badge: '生活应用', numPrefix: '三' },
 ]
 
-export default function HomeworkSheet({ homework }: Props) {
+export default function HomeworkSheet({ homework, showAnswers = false }: Props) {
   const sheetRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -87,6 +88,35 @@ export default function HomeworkSheet({ homework }: Props) {
         )
       })}
 
+      {/* 答案和解析 */}
+      {showAnswers && (
+        <div style={{ marginTop: '30px', pageBreakBefore: 'always' }}>
+          <div style={{ borderTop: '2px solid #000', paddingTop: '12px', marginBottom: '15px' }}>
+            <div style={{ fontSize: '14pt', fontWeight: 'bold', textAlign: 'center', letterSpacing: '4px', marginBottom: '4px' }}>
+              参考答案与解析
+            </div>
+          </div>
+
+          {SECTION_CONFIG.map((section) => {
+            const questions = homework[section.key] as GeneratedQuestion[]
+            if (!questions || questions.length === 0) return null
+            const hasAnyAnswer = questions.some(q => q.answer || q.solution)
+            if (!hasAnyAnswer) return null
+
+            return (
+              <div key={`ans-${section.key}`} style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '11pt', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
+                  {section.numPrefix}、{section.label}
+                </div>
+                {questions.map((q, qIdx) => (
+                  <AnswerBlock key={qIdx} question={q} number={qIdx + 1} />
+                ))}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* 页脚 */}
       <div className="homework-footer">
         错题啄木鸟 - 举一反三练习 | 第 1 页
@@ -154,6 +184,45 @@ function QuestionBlock({ question, number }: { question: GeneratedQuestion; numb
 
       {/* 答题留白区域 */}
       <div className="answer-area" style={{ height: `${(question.answerArea || 3) * 28}px` }} />
+    </div>
+  )
+}
+
+function AnswerBlock({ question, number }: { question: GeneratedQuestion; number: number }) {
+  const answerRef = useRef<HTMLSpanElement>(null)
+  const solutionRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (answerRef.current && question.answer) {
+      answerRef.current.innerHTML = renderMathText(question.answer)
+    }
+  }, [question.answer])
+
+  useEffect(() => {
+    if (solutionRef.current && question.solution) {
+      solutionRef.current.innerHTML = renderMathText(question.solution)
+    }
+  }, [question.solution])
+
+  if (!question.answer && !question.solution) return null
+
+  return (
+    <div style={{ marginBottom: '10px', padding: '6px 10px', background: '#f9f9f9', borderRadius: '4px', fontSize: '10pt' }}>
+      <div style={{ marginBottom: '2px' }}>
+        <span style={{ fontWeight: 'bold', color: '#333' }}>{number}. </span>
+        {question.answer && (
+          <>
+            <span style={{ color: '#666' }}>答案：</span>
+            <span ref={answerRef} style={{ color: '#c00', fontWeight: 'bold' }}></span>
+          </>
+        )}
+      </div>
+      {question.solution && (
+        <div style={{ color: '#555', lineHeight: '1.6' }}>
+          <span style={{ color: '#666' }}>解析：</span>
+          <span ref={solutionRef}></span>
+        </div>
+      )}
     </div>
   )
 }
