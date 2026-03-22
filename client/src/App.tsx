@@ -35,6 +35,15 @@ function App() {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [loadingState])
 
+  // Auto-generate homework after analysis completes
+  const autoGenerateRef = useRef(false)
+  useEffect(() => {
+    if (analysis && image && !homework && autoGenerateRef.current) {
+      autoGenerateRef.current = false
+      handleGenerate()
+    }
+  }, [analysis])
+
   const handleImageUpload = useCallback((uploaded: UploadedImage) => {
     setImage(uploaded)
     setAnalysis(null)
@@ -56,6 +65,7 @@ function App() {
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error || '分析失败')
+      autoGenerateRef.current = true
       setAnalysis(data.data)
     } catch (err: any) {
       setError(err.message || '分析请求失败，请重试')
@@ -247,7 +257,7 @@ function App() {
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
-                    错题分析
+                    错题分析并生成作业
                   </>
                 )}
               </button>

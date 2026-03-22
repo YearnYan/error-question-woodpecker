@@ -7,6 +7,6 @@ import { renderHomeworkHTML } from './html-renderer.js'
  * This guarantees 100% layout match with the web preview.
  */
 export async function exportToWord(homework: HomeworkData): Promise<Buffer> {
-  const html = renderHomeworkHTML(homework)
+  const html = renderHomeworkHTML(homework, true)
   return Buffer.from(html, 'utf-8')
 }

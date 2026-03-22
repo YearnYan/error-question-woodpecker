@@ -8,8 +8,9 @@ const SECTION_CONFIG = [
 
 /**
  * Render homework to HTML (matches HomeworkSheet.tsx exactly)
+ * @param forWord - if true, convert SVG to base64 <img> for Word compatibility
  */
-export function renderHomeworkHTML(homework: HomeworkData): string {
+export function renderHomeworkHTML(homework: HomeworkData, forWord = false): string {
   const today = new Date()
   const dateStr = `${today.getFullYear()} 年 ${today.getMonth() + 1} 月 ${today.getDate()} 日`
 
@@ -54,7 +55,7 @@ ${SECTION_CONFIG.map((section, sectionIdx) => {
       <span class="section-badge">${section.badge}</span>
       ${section.numPrefix}、${section.label}
     </div>
-${questions.map((q, qIdx) => renderQuestion(q, qIdx + 1)).join('\n')}
+${questions.map((q, qIdx) => renderQuestion(q, qIdx + 1, forWord)).join('\n')}
   `
 }).join('')}
 
@@ -89,8 +90,20 @@ ${questions.map((q, qIdx) => renderQuestion(q, qIdx + 1)).join('\n')}
   `.trim()
 }
 
-function renderQuestion(question: GeneratedQuestion, number: number): string {
+function renderQuestion(question: GeneratedQuestion, number: number, forWord = false): string {
   const hasFigure = question.figure && question.figure.trim().startsWith('<svg')
+
+  // For Word export, convert SVG to data URI <img> tag
+  let figureHtml = ''
+  if (hasFigure) {
+    if (forWord) {
+      // Encode SVG as data URI for Word compatibility
+      const svgBase64 = Buffer.from(question.figure!).toString('base64')
+      figureHtml = `<img src="data:image/svg+xml;base64,${svgBase64}" style="max-width: 100%; max-height: 200px;" />`
+    } else {
+      figureHtml = question.figure!
+    }
+  }
 
   return `
     <div class="question-block">
@@ -113,7 +126,7 @@ function renderQuestion(question: GeneratedQuestion, number: number): string {
       ${hasFigure ? `
       <div class="figure-container" style="border: 1px solid #eee; border-radius: 4px; background: #fafafa;">
         <div style="width: 100%; display: flex; justify-content: center;">
-          ${question.figure}
+          ${figureHtml}
         </div>
       </div>
       ` : ''}
