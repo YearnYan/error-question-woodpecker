@@ -151,49 +151,48 @@ async function buildQuestionParagraphs(q: GeneratedQuestion, num: number): Promi
   if (q.figure && q.figure.trim().startsWith('<svg')) {
     try {
       const svgStr = q.figure.trim()
+      console.log('[WordExport] Processing SVG, length:', svgStr.length, 'preview:', svgStr.substring(0, 200))
 
-      // 从 SVG 中提取宽高
-      const wMatch = svgStr.match(/width="(\d+)"/)
-      const hMatch = svgStr.match(/height="(\d+)"/)
-      const vbMatch = svgStr.match(/viewBox="[^"]*\s(\d+)\s(\d+)"/)
-      const svgW = wMatch ? parseInt(wMatch[1]) : vbMatch ? parseInt(vbMatch[1]) : 400
-      const svgH = hMatch ? parseInt(hMatch[1]) : vbMatch ? parseInt(vbMatch[2]) : 300
+      // 用 sharp 获取实际图片尺寸并转换为 PNG
+      const sharpInstance = sharp(Buffer.from(svgStr, 'utf-8'), { density: 150 })
+      const metadata = await sharpInstance.metadata()
+      console.log('[WordExport] Sharp metadata:', JSON.stringify({ w: metadata.width, h: metadata.height, format: metadata.format }))
 
-      // 使用 sharp 将 SVG 转换为 PNG，设置密度以提高清晰度
       const pngBuffer = await sharp(Buffer.from(svgStr, 'utf-8'), { density: 150 })
         .png()
         .toBuffer()
+      console.log('[WordExport] PNG buffer size:', pngBuffer.length, 'bytes')
+
+      // 使用 sharp 返回的实际像素尺寸
+      const pngW = metadata.width || 400
+      const pngH = metadata.height || 300
 
       // 限制最大宽度为 450pt，等比缩放
       const maxW = 450
-      const scale = svgW > maxW ? maxW / svgW : 1
-      const displayW = Math.round(svgW * scale)
-      const displayH = Math.round(svgH * scale)
+      const scale = pngW > maxW ? maxW / pngW : 1
+      const displayW = Math.round(pngW * scale)
+      const displayH = Math.round(pngH * scale)
+      console.log('[WordExport] Display size:', displayW, 'x', displayH)
 
       paras.push(new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: { before: 120, after: 120 },
         children: [
           new ImageRun({
-            type: 'png',
             data: pngBuffer,
             transformation: { width: displayW, height: displayH },
-          } as any), // 类型断言避免 docx 库的类型定义问题
+          } as any),
         ],
       }))
     } catch (err) {
       console.error('[WordExport] Failed to embed figure:', err)
-      // 如果转换失败，添加提示文本
       paras.push(new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: { before: 120, after: 120 },
         children: [
           new TextRun({
-            text: '[图形转换失败]',
-            size: 20,
-            font: 'SimSun',
-            color: '999999',
-            italics: true,
+            text: '[图形转换失败: ' + (err as Error).message + ']',
+            size: 20, font: 'SimSun', color: '999999', italics: true,
           }),
         ],
       }))
