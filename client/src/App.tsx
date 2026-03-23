@@ -529,6 +529,11 @@ function App() {
           </div>
         </div>
       </main>
+
+      {/* 固定显示的联系我们信息 */}
+      <div className="fixed bottom-4 left-4 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-lg shadow-md border border-gray-200 text-sm text-gray-700 z-50">
+        联系我们：微信号 aigongtou666
+      </div>
     </div>
   )
 }
