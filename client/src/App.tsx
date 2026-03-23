@@ -36,14 +36,7 @@ function App() {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [loadingState])
 
-  // Auto-generate homework after analysis completes
   const autoGenerateRef = useRef(false)
-  useEffect(() => {
-    if (analysis && image && !homework && autoGenerateRef.current) {
-      autoGenerateRef.current = false
-      handleGenerate()
-    }
-  }, [analysis])
 
   const handleImageUpload = useCallback((uploaded: UploadedImage) => {
     setImage(uploaded)
@@ -166,6 +159,14 @@ function App() {
       abortRef.current = null
     }
   }, [analysis, image])
+
+  // Auto-generate homework after analysis completes
+  useEffect(() => {
+    if (analysis && image && !homework && autoGenerateRef.current) {
+      autoGenerateRef.current = false
+      handleGenerate()
+    }
+  }, [analysis, image, homework, handleGenerate])
 
   const handleReset = useCallback(() => {
     setImage(null)
