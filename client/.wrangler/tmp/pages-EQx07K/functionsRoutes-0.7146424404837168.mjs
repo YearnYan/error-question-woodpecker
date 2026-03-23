@@ -1,0 +1,11 @@
+import { onRequest as __api___path___js_onRequest } from "D:\\AI培训业务\\产品\\1 错题啄木鸟\\错题啄木鸟V9\\client\\functions\\api\\[[path]].js"
+
+export const routes = [
+    {
+      routePath: "/api/:path*",
+      mountPath: "/api",
+      method: "",
+      middlewares: [],
+      modules: [__api___path___js_onRequest],
+    },
+  ]

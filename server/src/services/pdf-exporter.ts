@@ -1,6 +1,14 @@
-import htmlPdf from 'html-pdf-node'
 import type { HomeworkData } from './generator.js'
 import { renderHomeworkHTML } from './html-renderer.js'
+
+// Lazy import html-pdf-node to avoid loading native module at startup
+let htmlPdf: any = null
+async function getHtmlPdf() {
+  if (!htmlPdf) {
+    htmlPdf = (await import('html-pdf-node')).default
+  }
+  return htmlPdf
+}
 
 /**
  * Export homework data to PDF
@@ -23,7 +31,8 @@ export async function exportToPDF(homework: HomeworkData): Promise<Buffer> {
   const file = { content: html }
 
   try {
-    const pdfBuffer = await htmlPdf.generatePdf(file, options)
+    const HtmlPdf = await getHtmlPdf()
+    const pdfBuffer = await HtmlPdf.generatePdf(file, options)
     return pdfBuffer as Buffer
   } catch (err) {
     console.error('[PDF Export] Failed:', err)

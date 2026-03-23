@@ -2,8 +2,16 @@ import {
   Document, Packer, Paragraph, TextRun, AlignmentType,
   BorderStyle, ImageRun, TabStopPosition, TabStopType,
 } from 'docx'
-import sharp from 'sharp'
 import type { HomeworkData, GeneratedQuestion } from './generator.js'
+
+// Lazy import sharp to avoid loading native module at startup
+let sharp: any = null
+async function getSharp() {
+  if (!sharp) {
+    sharp = (await import('sharp')).default
+  }
+  return sharp
+}
 
 const SECTIONS = [
   { key: 'similar' as const, badge: '同考点', prefix: '一', label: '相似题' },
@@ -154,11 +162,12 @@ async function buildQuestionParagraphs(q: GeneratedQuestion, num: number): Promi
       console.log('[WordExport] Processing SVG, length:', svgStr.length, 'preview:', svgStr.substring(0, 200))
 
       // 用 sharp 获取实际图片尺寸并转换为 PNG
-      const sharpInstance = sharp(Buffer.from(svgStr, 'utf-8'), { density: 150 })
+      const Sharp = await getSharp()
+      const sharpInstance = Sharp(Buffer.from(svgStr, 'utf-8'), { density: 150 })
       const metadata = await sharpInstance.metadata()
       console.log('[WordExport] Sharp metadata:', JSON.stringify({ w: metadata.width, h: metadata.height, format: metadata.format }))
 
-      const pngBuffer = await sharp(Buffer.from(svgStr, 'utf-8'), { density: 150 })
+      const pngBuffer = await Sharp(Buffer.from(svgStr, 'utf-8'), { density: 150 })
         .png()
         .toBuffer()
       console.log('[WordExport] PNG buffer size:', pngBuffer.length, 'bytes')
