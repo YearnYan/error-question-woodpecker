@@ -1,5 +1,5 @@
 import { chatWithText } from './ai.js'
-import { getGenerateSystemPrompt, getGenerateUserPrompt } from '../prompts/generate.js'
+import { getGenerateSystemPrompt, getGenerateUserPrompt, getAppendGenerateUserPrompt } from '../prompts/generate.js'
 import { getCacheKey, getFromCache, setCache } from './cache.js'
 
 export interface GeneratedQuestion {
@@ -27,18 +27,23 @@ export async function generateQuestions(
   knowledgePoints: string[],
   examPoints: string[],
   subject: string,
-  hasGraph: boolean
+  hasGraph: boolean,
+  existingQuestions?: { similar: any[], variant: any[], comprehensive: any[] }
 ): Promise<HomeworkData> {
-  // Check cache
-  const cacheInput = JSON.stringify({ originalText, knowledgePoints, examPoints, subject, hasGraph })
-  const cacheKey = getCacheKey(cacheInput)
-  const cached = getFromCache(cacheKey)
-  if (cached) {
-    return JSON.parse(cached)
+  // Check cache (only for initial generation, not append)
+  if (!existingQuestions) {
+    const cacheInput = JSON.stringify({ originalText, knowledgePoints, examPoints, subject, hasGraph })
+    const cacheKey = getCacheKey(cacheInput)
+    const cached = getFromCache(cacheKey)
+    if (cached) {
+      return JSON.parse(cached)
+    }
   }
 
   const systemPrompt = getGenerateSystemPrompt(subject, hasGraph)
-  const userPrompt = getGenerateUserPrompt(originalText, knowledgePoints, examPoints, subject, hasGraph)
+  const userPrompt = existingQuestions
+    ? getAppendGenerateUserPrompt(originalText, knowledgePoints, examPoints, subject, hasGraph, existingQuestions)
+    : getGenerateUserPrompt(originalText, knowledgePoints, examPoints, subject, hasGraph)
 
   const response = await chatWithText(systemPrompt, userPrompt, {
     temperature: 0.8,
@@ -60,8 +65,12 @@ export async function generateQuestions(
     generatedAt: new Date().toISOString(),
   }
 
-  // Cache result
-  setCache(cacheKey, JSON.stringify(homework))
+  // Cache result (only for initial generation)
+  if (!existingQuestions) {
+    const cacheInput = JSON.stringify({ originalText, knowledgePoints, examPoints, subject, hasGraph })
+    const cacheKey = getCacheKey(cacheInput)
+    setCache(cacheKey, JSON.stringify(homework))
+  }
 
   return homework
 }

@@ -5,6 +5,9 @@ import katex from 'katex'
 interface Props {
   homework: HomeworkData
   showAnswers?: boolean
+  selectionMode?: boolean
+  selectedQuestions?: Set<string>
+  onToggleQuestion?: (questionId: string) => void
 }
 
 const SECTION_CONFIG = [
@@ -13,7 +16,13 @@ const SECTION_CONFIG = [
   { key: 'comprehensive' as const, label: '综合应用题', badge: '生活应用', numPrefix: '三' },
 ]
 
-export default function HomeworkSheet({ homework, showAnswers = false }: Props) {
+export default function HomeworkSheet({
+  homework,
+  showAnswers = false,
+  selectionMode = false,
+  selectedQuestions,
+  onToggleQuestion,
+}: Props) {
   const sheetRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -77,13 +86,20 @@ export default function HomeworkSheet({ homework, showAnswers = false }: Props) 
               {section.numPrefix}、{section.label}
             </div>
 
-            {questions.map((q, qIdx) => (
-              <QuestionBlock
-                key={qIdx}
-                question={q}
-                number={qIdx + 1}
-              />
-            ))}
+            {questions.map((q, qIdx) => {
+              const questionId = `${section.key}-${qIdx}`
+              const isSelected = selectedQuestions?.has(questionId) ?? true
+              return (
+                <QuestionBlock
+                  key={qIdx}
+                  question={q}
+                  number={qIdx + 1}
+                  selectionMode={selectionMode}
+                  isSelected={isSelected}
+                  onToggle={() => onToggleQuestion?.(questionId)}
+                />
+              )
+            })}
           </div>
         )
       })}
@@ -125,7 +141,13 @@ export default function HomeworkSheet({ homework, showAnswers = false }: Props) 
   )
 }
 
-function QuestionBlock({ question, number }: { question: GeneratedQuestion; number: number }) {
+function QuestionBlock({ question, number, selectionMode = false, isSelected = true, onToggle }: {
+  question: GeneratedQuestion
+  number: number
+  selectionMode?: boolean
+  isSelected?: boolean
+  onToggle?: () => void
+}) {
   const stemRef = useRef<HTMLDivElement>(null)
   const figureRef = useRef<HTMLDivElement>(null)
 
@@ -146,7 +168,38 @@ function QuestionBlock({ question, number }: { question: GeneratedQuestion; numb
   const figureLoading = question.figure && question.figure.trim().length > 0 && !question.figure.trim().startsWith('<svg')
 
   return (
-    <div className="question-block">
+    <div
+      className="question-block"
+      style={{
+        position: 'relative',
+        opacity: selectionMode && !isSelected ? 0.4 : 1,
+        transition: 'opacity 0.2s',
+        cursor: selectionMode ? 'pointer' : undefined,
+      }}
+      onClick={selectionMode ? onToggle : undefined}
+    >
+      {selectionMode && (
+        <div style={{
+          position: 'absolute',
+          left: '-28px',
+          top: '2px',
+          width: '20px',
+          height: '20px',
+          border: `2px solid ${isSelected ? '#16a34a' : '#d1d5db'}`,
+          borderRadius: '4px',
+          background: isSelected ? '#16a34a' : '#fff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+        }}>
+          {isSelected && (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+              <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+        </div>
+      )}
       <div className="question-stem">
         <span className="question-number">{number}.</span>
         <span ref={stemRef}></span>

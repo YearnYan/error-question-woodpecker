@@ -21,6 +21,9 @@ function App() {
   const [mobileView, setMobileView] = useState<'left' | 'right'>('left')
   const [progress, setProgress] = useState<ProgressInfo | null>(null)
   const [elapsed, setElapsed] = useState(0)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set())
+  const [isAppending, setIsAppending] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -173,7 +176,131 @@ function App() {
     setHomework(null)
     setLoadingState('idle')
     setError('')
+    setSelectionMode(false)
+    setSelectedQuestions(new Set())
   }, [])
+
+  // Append generation handler (SSE streaming)
+  const handleAppendGenerate = useCallback(async () => {
+    if (!image || !analysis || !homework) return
+
+    setIsAppending(true)
+    setError('')
+    setProgress({ phase: 'starting', message: '正在生成更多题目...', percent: 5 })
+
+    const abort = new AbortController()
+    abortRef.current = abort
+
+    try {
+      const res = await fetch('/api/generate/append', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ analysis, existingHomework: homework }),
+        signal: abort.signal,
+      })
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error || '追加生成失败')
+      }
+
+      const reader = res.body?.getReader()
+      if (!reader) throw new Error('浏览器不支持流式读取')
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let currentHomework: HomeworkData | null = null
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        let eventType = ''
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7).trim()
+          } else if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              if (eventType === 'progress') {
+                setProgress(data)
+              } else if (eventType === 'questions') {
+                currentHomework = { ...data }
+                setHomework({ ...data })
+              } else if (eventType === 'figure') {
+                if (currentHomework) {
+                  const { section, index, svg } = data
+                  const arr = currentHomework[section as keyof HomeworkData] as any[]
+                  if (arr && arr[index]) {
+                    arr[index].figure = svg
+                    setHomework({ ...currentHomework })
+                  }
+                }
+              } else if (eventType === 'done') {
+                setHomework({ ...data })
+                setProgress({ phase: 'done', message: '生成完成', percent: 100 })
+              } else if (eventType === 'error') {
+                throw new Error(data.error || '追加生成失败')
+              }
+            } catch (parseErr: any) {
+              if (parseErr.message?.includes('追加生成失败')) throw parseErr
+            }
+            eventType = ''
+          }
+        }
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        setError(err.message || '追加生成失败，请重试')
+      }
+    } finally {
+      setIsAppending(false)
+      setProgress(null)
+      abortRef.current = null
+    }
+  }, [image, analysis, homework])
+
+  // Toggle selection mode
+  const handleToggleSelectionMode = useCallback(() => {
+    setSelectionMode(prev => !prev)
+    if (selectionMode) {
+      // Exiting selection mode, clear selections
+      setSelectedQuestions(new Set())
+    }
+  }, [selectionMode])
+
+  // Toggle question selection
+  const handleToggleQuestion = useCallback((questionId: string) => {
+    setSelectedQuestions(prev => {
+      const next = new Set(prev)
+      if (next.has(questionId)) {
+        next.delete(questionId)
+      } else {
+        next.add(questionId)
+      }
+      return next
+    })
+  }, [])
+
+  // Confirm selection and filter homework
+  const handleConfirmSelection = useCallback(() => {
+    if (!homework || selectedQuestions.size === 0) return
+
+    const filtered: HomeworkData = {
+      ...homework,
+      similar: homework.similar.filter((_, idx) => selectedQuestions.has(`similar-${idx}`)),
+      variant: homework.variant.filter((_, idx) => selectedQuestions.has(`variant-${idx}`)),
+      comprehensive: homework.comprehensive.filter((_, idx) => selectedQuestions.has(`comprehensive-${idx}`)),
+    }
+
+    setHomework(filtered)
+    setSelectionMode(false)
+    setSelectedQuestions(new Set())
+  }, [homework, selectedQuestions])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -327,7 +454,7 @@ function App() {
               <LoadingSkeleton progress={progress} />
             ) : homework ? (
               <div>
-                {progress && progress.phase !== 'done' && (
+                {progress && progress.phase !== 'done' && !isAppending && (
                   <div className="mb-4 bg-white rounded-2xl shadow-sm border border-gray-100 px-5 py-3">
                     <div className="flex items-center gap-3">
                       <svg className="animate-spin h-4 w-4 text-primary-500" viewBox="0 0 24 24">
@@ -345,7 +472,17 @@ function App() {
                     </div>
                   </div>
                 )}
-                <HomeworkPreview homework={homework} />
+                <HomeworkPreview
+                  homework={homework}
+                  selectionMode={selectionMode}
+                  selectedQuestions={selectedQuestions}
+                  isAppending={isAppending}
+                  progress={progress}
+                  onAppendGenerate={handleAppendGenerate}
+                  onToggleSelectionMode={handleToggleSelectionMode}
+                  onToggleQuestion={handleToggleQuestion}
+                  onConfirmSelection={handleConfirmSelection}
+                />
               </div>
             ) : (
               <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 min-h-[600px] flex flex-col items-center justify-center text-gray-400">

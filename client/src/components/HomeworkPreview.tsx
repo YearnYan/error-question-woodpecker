@@ -3,8 +3,22 @@ import type { HomeworkData } from '../types'
 import HomeworkSheet from './HomeworkSheet'
 import '../styles/homework-sheet.css'
 
+interface ProgressInfo {
+  phase: string
+  message: string
+  percent: number
+}
+
 interface Props {
   homework: HomeworkData
+  selectionMode: boolean
+  selectedQuestions: Set<string>
+  isAppending: boolean
+  progress: ProgressInfo | null
+  onAppendGenerate: () => void
+  onToggleSelectionMode: () => void
+  onToggleQuestion: (questionId: string) => void
+  onConfirmSelection: () => void
 }
 
 function getPrintStyles(): string {
@@ -98,7 +112,17 @@ function getPrintStyles(): string {
   `
 }
 
-export default function HomeworkPreview({ homework }: Props) {
+export default function HomeworkPreview({
+  homework,
+  selectionMode,
+  selectedQuestions,
+  isAppending,
+  progress,
+  onAppendGenerate,
+  onToggleSelectionMode,
+  onToggleQuestion,
+  onConfirmSelection,
+}: Props) {
   const sheetRef = useRef<HTMLDivElement>(null)
   const [showAnswers, setShowAnswers] = useState(false)
 
@@ -170,47 +194,133 @@ export default function HomeworkPreview({ homework }: Props) {
           作业试卷预览
         </h2>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowAnswers(!showAnswers)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              showAnswers
-                ? 'text-white bg-amber-500 hover:bg-amber-600'
-                : 'text-gray-600 bg-gray-100 hover:bg-gray-200'
-            }`}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              {showAnswers
-                ? <path d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M3 3l18 18" strokeLinecap="round" strokeLinejoin="round"/>
-                : <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" strokeLinecap="round" strokeLinejoin="round"/>
-              }
-            </svg>
-            {showAnswers ? '隐藏答案' : '显示答案和解析'}
-          </button>
-          <button
-            onClick={handleExportWord}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            下载 WORD
-          </button>
-          <button
-            onClick={handleExportPDF}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            下载 PDF
-          </button>
+          {!selectionMode ? (
+            <>
+              <button
+                onClick={() => setShowAnswers(!showAnswers)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  showAnswers
+                    ? 'text-white bg-amber-500 hover:bg-amber-600'
+                    : 'text-gray-600 bg-gray-100 hover:bg-gray-200'
+                }`}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  {showAnswers
+                    ? <path d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M3 3l18 18" strokeLinecap="round" strokeLinejoin="round"/>
+                    : <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" strokeLinecap="round" strokeLinejoin="round"/>
+                  }
+                </svg>
+                {showAnswers ? '隐藏答案' : '显示答案和解析'}
+              </button>
+              <button
+                onClick={onAppendGenerate}
+                disabled={isAppending}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-green-300 disabled:cursor-not-allowed rounded-lg transition-colors"
+              >
+                {isAppending ? (
+                  <>
+                    <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                    </svg>
+                    生成中...
+                  </>
+                ) : (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 4v16m8-8H4" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    继续生成题目
+                  </>
+                )}
+              </button>
+              <button
+                onClick={onToggleSelectionMode}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                选择题目
+              </button>
+              <button
+                onClick={handleExportWord}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                下载 WORD
+              </button>
+              <button
+                onClick={handleExportPDF}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                下载 PDF
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="text-sm text-gray-600">
+                已选 {selectedQuestions.size} 题
+              </span>
+              <button
+                onClick={onConfirmSelection}
+                disabled={selectedQuestions.size === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-green-300 disabled:cursor-not-allowed rounded-lg transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                确认组卷
+              </button>
+              <button
+                onClick={onToggleSelectionMode}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                取消
+              </button>
+            </>
+          )}
         </div>
       </div>
+
+      {/* 追加生成进度条 */}
+      {isAppending && progress && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 py-3">
+          <div className="flex items-center gap-3">
+            <svg className="animate-spin h-4 w-4 text-green-500" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+            </svg>
+            <span className="text-sm text-gray-600">{progress.message}</span>
+            <div className="flex-1 bg-gray-200 rounded-full h-2 ml-2">
+              <div
+                className="bg-green-500 h-2 rounded-full transition-all duration-500"
+                style={{ width: `${progress.percent}%` }}
+              />
+            </div>
+            <span className="text-xs text-gray-400 ml-2">{progress.percent}%</span>
+          </div>
+        </div>
+      )}
 
       {/* 作业纸 */}
       <div className="overflow-x-auto pb-4">
         <div ref={sheetRef} className="mx-auto" style={{ width: 'fit-content' }}>
-          <HomeworkSheet homework={homework} showAnswers={showAnswers} />
+          <HomeworkSheet
+            homework={homework}
+            showAnswers={showAnswers}
+            selectionMode={selectionMode}
+            selectedQuestions={selectedQuestions}
+            onToggleQuestion={onToggleQuestion}
+          />
         </div>
       </div>
     </div>
