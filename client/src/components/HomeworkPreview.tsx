@@ -1,5 +1,6 @@
 import { useRef, useCallback, useState } from 'react'
 import type { HomeworkData } from '../types'
+import { API_ENDPOINTS } from '../config'
 import HomeworkSheet from './HomeworkSheet'
 import '../styles/homework-sheet.css'
 
@@ -132,7 +133,7 @@ export default function HomeworkPreview({
 
   const handleExportWord = useCallback(async () => {
     try {
-      const res = await fetch('/api/export/word', {
+      const res = await fetch(API_ENDPOINTS.exportWord, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ homework }),

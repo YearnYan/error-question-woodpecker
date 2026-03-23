@@ -26,3 +26,4 @@ Thumbs.db
 .cache/
 *.cache
 node_modules
+.vercel

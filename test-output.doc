@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>��ѧ举一反三练习</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <style>
+/* 作业纸专用样式 - 模拟真实学校作业纸 */
+.homework-sheet {
+  background: white;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 20mm 18mm 25mm 18mm;
+  margin: 0 auto;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  font-family: 'SimSun', 'STSong', 'Songti SC', 'Noto Serif CJK SC', serif;
+  font-size: 11pt;
+  line-height: 1.8;
+  color: #000;
+  position: relative;
+}
+
+/* 页眉区域 */
+.homework-header {
+  text-align: center;
+  border-bottom: 2px solid #000;
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+}
+.homework-header .title {
+  font-size: 16pt;
+  font-weight: bold;
+  letter-spacing: 4px;
+  margin-bottom: 4px;
+}
+.homework-header .subtitle {
+  font-size: 11pt;
+  color: #333;
+}
+.homework-header .info-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10pt;
+  margin-top: 8px;
+  color: #444;
+}
+.homework-header .info-row .info-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.homework-header .info-row .underline-blank {
+  display: inline-block;
+  width: 80px;
+  border-bottom: 1px solid #000;
+}
+
+/* 题目区块标题 */
+.section-title {
+  font-size: 12pt;
+  font-weight: bold;
+  margin: 18px 0 10px 0;
+  padding-left: 0;
+  position: relative;
+}
+.section-badge {
+  display: inline-block;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 9pt;
+  padding: 1px 8px;
+  border-radius: 2px;
+  margin-right: 8px;
+  font-weight: normal;
+  vertical-align: middle;
+}
+
+/* 题目容器 */
+.question-block {
+  margin-bottom: 16px;
+  padding: 0;
+}
+.question-number {
+  font-weight: bold;
+  margin-right: 6px;
+}
+.question-stem {
+  text-align: justify;
+  text-indent: 0;
+  margin-bottom: 6px;
+}
+.question-options {
+  padding-left: 2em;
+  margin-bottom: 6px;
+}
+.question-options .option-item {
+  margin-bottom: 2px;
+}
+
+/* 答题区域（横线） */
+.answer-area {
+  margin-top: 8px;
+  padding-top: 4px;
+}
+
+/* 图形区域 */
+.figure-container {
+  display: flex;
+  justify-content: center;
+  margin: 10px 0;
+  padding: 8px;
+}
+.figure-container img,
+.figure-container svg {
+  max-width: 100%;
+  max-height: 200px;
+}
+
+/* 页脚 */
+.homework-footer {
+  position: absolute;
+  bottom: 15mm;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 9pt;
+  color: #999;
+}
+
+/* 分隔线 */
+.section-divider {
+  border: none;
+  border-top: 1px dashed #ccc;
+  margin: 15px 0;
+}
+
+/* 打印样式 */
+@media print {
+  .homework-sheet {
+    box-shadow: none;
+    margin: 0;
+    padding: 15mm 15mm 20mm 15mm;
+  }
+  @page {
+    size: A4;
+    margin: 0;
+  }
+}
+  </style>
+</head>
+<body>
+  <div class="homework-sheet">
+    <!-- 页眉 -->
+    <div class="homework-header">
+      <div class="title">��ѧ举一反三练习</div>
+      <div class="subtitle">基于错题的巩固提升训练</div>
+      <div class="info-row">
+        <span class="info-item">姓名：<span class="underline-blank"></span></span>
+        <span class="info-item">班级：<span class="underline-blank"></span></span>
+        <span class="info-item">日期：2026 年 3 月 23 日</span>
+      </div>
+    </div>
+
+    <!-- 原题考点提示 -->
+    <div style="font-size: 9pt; color: #666; margin-bottom: 12px; padding: 6px 10px; background: #f9f9f9; border-left: 3px solid #333;">
+      原题考点：��ⷽ��
+    </div>
+
+    <!-- 三类题目 -->
+
+    
+    <div class="section-title">
+      <span class="section-badge">同考点</span>
+      一、相似题
+    </div>
+
+    <div class="question-block">
+      <div class="question-stem">
+        <span class="question-number">1.</span>
+        <span>��֪����<span data-math="f(x)=x^2+2x+1" data-display="false"></span>����<span data-math="f(3)" data-display="false"></span>��ֵ��</span>
+      </div>
+
+      
+      <div class="question-options">
+        
+        <div class="option-item">
+          <span style="font-weight: bold; margin-right: 6px;">A.</span>
+          <span>A. 12</span>
+        </div>
+        
+        <div class="option-item">
+          <span style="font-weight: bold; margin-right: 6px;">B.</span>
+          <span>B. 16</span>
+        </div>
+        
+        <div class="option-item">
+          <span style="font-weight: bold; margin-right: 6px;">C.</span>
+          <span>C. 9</span>
+        </div>
+        
+        <div class="option-item">
+          <span style="font-weight: bold; margin-right: 6px;">D.</span>
+          <span>D. 15</span>
+        </div>
+        
+      </div>
+      
+
+      
+
+      <div class="answer-area" style="height: 28px;"></div>
+    </div>
+  
+  
+
+    <!-- 页脚 -->
+    <div class="homework-footer">
+      错题啄木鸟 - 举一反三练习 | 第 1 页
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script>
+    // Render all math after page load
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('[data-math]').forEach(function(el) {
+        const tex = el.getAttribute('data-math') || ''
+        const display = el.getAttribute('data-display') === 'true'
+        try {
+          katex.render(tex, el, {
+            displayMode: display,
+            throwOnError: false,
+            trust: true,
+            strict: false
+          })
+        } catch (e) {
+          el.textContent = tex
+        }
+      })
+    })
+  </script>
+</body>
+</html>

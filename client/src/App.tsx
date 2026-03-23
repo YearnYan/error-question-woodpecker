@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { UploadedImage, AnalysisResult, HomeworkData, LoadingState, Subject, GeneratedQuestion } from './types'
+import { API_ENDPOINTS } from './config'
 import UploadPanel from './components/UploadPanel'
 import AnalysisResultPanel from './components/AnalysisResult'
 import HomeworkPreview from './components/HomeworkPreview'
@@ -64,7 +65,7 @@ function App() {
     abortRef.current = abort
 
     try {
-      const res = await fetch('/api/generate', {
+      const res = await fetch(API_ENDPOINTS.generate, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: img.base64, analysis: anal }),
@@ -148,7 +149,7 @@ function App() {
     setAnalysis(null)
 
     try {
-      const res = await fetch('/api/analyze', {
+      const res = await fetch(API_ENDPOINTS.analyze, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: image.base64 }),
@@ -212,7 +213,7 @@ function App() {
     abortRef.current = abort
 
     try {
-      const res = await fetch('/api/generate/append', {
+      const res = await fetch(API_ENDPOINTS.generateAppend, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ analysis, existingHomework: homework }),
