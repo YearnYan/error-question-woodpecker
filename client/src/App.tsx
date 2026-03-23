@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import type { UploadedImage, AnalysisResult, HomeworkData, LoadingState, Subject } from './types'
+import type { UploadedImage, AnalysisResult, HomeworkData, LoadingState, Subject, GeneratedQuestion } from './types'
 import UploadPanel from './components/UploadPanel'
 import AnalysisResultPanel from './components/AnalysisResult'
 import HomeworkPreview from './components/HomeworkPreview'
@@ -186,7 +186,9 @@ function App() {
     if (!image || !analysis || !homework) return
 
     // 立即添加占位题目，让用户看到"新题目生成中"的提示
-    const placeholderQuestion = {
+    const placeholderQuestion: GeneratedQuestion = {
+      type: 'similar' as const,
+      typeLabel: '占位',
       stem: '新题目生成中...',
       options: [],
       answerArea: 3,
