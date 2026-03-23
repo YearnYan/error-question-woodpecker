@@ -1,3 +1,7 @@
+import {
+  Document, Packer, Paragraph, TextRun, AlignmentType,
+  BorderStyle, TabStopPosition, TabStopType,
+} from 'docx'
 import type { HomeworkData, GeneratedQuestion } from './generator.js'
 
 const SECTIONS = [
@@ -7,137 +11,345 @@ const SECTIONS = [
 ]
 
 export async function exportToWord(homework: HomeworkData): Promise<Buffer> {
-  const html = buildWordHTML(homework)
-  return Buffer.from(html, 'utf-8')
-}
-
-function buildWordHTML(hw: HomeworkData): string {
   const d = new Date()
-  const date = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`
+  const date = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
 
-  const body = SECTIONS.map(s => {
-    const qs = hw[s.key] as GeneratedQuestion[]
-    if (!qs || qs.length === 0) return ''
-    const qhtml = qs.map((q, i) => questionHTML(q, i + 1)).join('')
-    return '<div style="margin-top:18px;">' +
-      '<div style="font-size:12pt;font-weight:bold;margin-bottom:10px;">' +
-      `<span style="background:#1a1a1a;color:#fff;font-size:9pt;padding:1px 8px;margin-right:8px;font-weight:normal;">${s.badge}</span>` +
-      `${s.prefix}、${s.label}</div>${qhtml}</div>`
-  }).filter(Boolean).join('')
+  const children: Paragraph[] = []
 
-  // 关键：整个HTML必须紧凑无多余空白，Word会把源码空白当文字渲染
-  return '<!DOCTYPE html>' +
-    '<html><head><meta charset="UTF-8">' +
-    `<title>${hw.subject}举一反三练习</title>` +
-    '<style>' +
-    "body{font-family:'SimSun','STSong',serif;font-size:11pt;line-height:1.8;color:#000;}" +
-    '.sheet{width:210mm;padding:20mm 18mm 25mm 18mm;margin:0 auto;}' +
-    '</style></head><body><div class="sheet">' +
-    // 页眉
-    '<div style="text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:15px;">' +
-    `<div style="font-size:16pt;font-weight:bold;letter-spacing:4px;margin-bottom:4px;">${hw.subject}举一反三练习</div>` +
-    '<div style="font-size:11pt;color:#333;">基于错题的巩固提升训练</div>' +
-    '<div style="font-size:10pt;margin-top:8px;color:#444;">' +
-    `姓名：________ &nbsp;&nbsp;&nbsp; 班级：________ &nbsp;&nbsp;&nbsp; 日期：${date}` +
-    '</div></div>' +
-    // 考点
-    `<div style="font-size:9pt;color:#666;margin-bottom:12px;padding:6px 10px;background:#f9f9f9;border-left:3px solid #333;">原题考点：${esc(hw.originalQuestion)}</div>` +
+  // 标题
+  children.push(new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 80 },
+    children: [new TextRun({
+      text: `${homework.subject}举一反三练习`,
+      bold: true, size: 32, font: 'SimSun',
+    })],
+  }))
+
+  // 副标题
+  children.push(new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 120 },
+    children: [new TextRun({
+      text: '基于错题的巩固提升训练',
+      size: 22, font: 'SimSun', color: '333333',
+    })],
+  }))
+
+  // 信息行：姓名、班级、日期
+  children.push(new Paragraph({
+    spacing: { after: 200 },
+    tabStops: [
+      { type: TabStopType.LEFT, position: TabStopPosition.MAX / 3 },
+      { type: TabStopType.LEFT, position: (TabStopPosition.MAX / 3) * 2 },
+    ],
+    children: [
+      new TextRun({ text: '姓名：__________', size: 20, font: 'SimSun' }),
+      new TextRun({ text: '\t', size: 20 }),
+      new TextRun({ text: '班级：__________', size: 20, font: 'SimSun' }),
+      new TextRun({ text: '\t', size: 20 }),
+      new TextRun({ text: `日期：${date}`, size: 20, font: 'SimSun' }),
+    ],
+  }))
+
+  // 原题考点
+  children.push(new Paragraph({
+    spacing: { after: 180 },
+    indent: { left: 200 },
+    border: { left: { style: BorderStyle.SINGLE, size: 12, color: '333333' } },
+    shading: { fill: 'F9F9F9' },
+    children: [new TextRun({
+      text: `原题考点：${homework.originalQuestion}`,
+      size: 18, font: 'SimSun', color: '666666',
+    })],
+  }))
+
+  // 三类题目
+  for (const section of SECTIONS) {
+    const questions = homework[section.key] as GeneratedQuestion[]
+    if (!questions || questions.length === 0) continue
+
+    // 题型标题
+    children.push(new Paragraph({
+      spacing: { before: 240, after: 160 },
+      children: [
+        new TextRun({
+          text: `【${section.badge}】`,
+          size: 18, font: 'SimSun', bold: true,
+          color: 'FFFFFF', shading: { fill: '1A1A1A' },
+        }),
+        new TextRun({ text: ' ', size: 18 }),
+        new TextRun({
+          text: `${section.prefix}、${section.label}`,
+          size: 24, font: 'SimSun', bold: true,
+        }),
+      ],
+    }))
+
     // 题目
-    body +
-    // 页脚
-    '<div style="text-align:center;font-size:9pt;color:#999;margin-top:30px;">错题啄木鸟 - 举一反三练习</div>' +
-    '</div></body></html>'
-}
-
-function questionHTML(q: GeneratedQuestion, num: number): string {
-  let fig = ''
-  if (q.figure && q.figure.trim().startsWith('<svg')) {
-    const b64 = Buffer.from(q.figure).toString('base64')
-    fig = `<div style="text-align:center;margin:10px 0;"><img src="data:image/svg+xml;base64,${b64}" style="max-width:100%;max-height:200px;" /></div>`
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i]
+      children.push(...buildQuestionParagraphs(q, i + 1))
+    }
   }
 
-  let opts = ''
+  // 页脚
+  children.push(new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 400 },
+    children: [new TextRun({
+      text: '错题啄木鸟 - 举一反三练习',
+      size: 18, font: 'SimSun', color: '999999',
+    })],
+  }))
+
+  const doc = new Document({
+    sections: [{
+      properties: {
+        page: {
+          margin: { top: 1440, right: 1296, bottom: 1800, left: 1296 }, // 20mm, 18mm, 25mm, 18mm
+        },
+      },
+      children,
+    }],
+  })
+
+  return await Packer.toBuffer(doc)
+}
+
+function buildQuestionParagraphs(q: GeneratedQuestion, num: number): Paragraph[] {
+  const paras: Paragraph[] = []
+
+  // 题干
+  const stemRuns = parseLatexText(q.stem)
+  paras.push(new Paragraph({
+    spacing: { after: 120 },
+    children: [
+      new TextRun({ text: `${num}. `, bold: true, size: 22, font: 'SimSun' }),
+      ...stemRuns,
+    ],
+  }))
+
+  // 选项
   if (q.options && q.options.length > 0) {
-    opts = '<div style="padding-left:2em;margin-bottom:6px;">' +
-      q.options.map((o, i) =>
-        `<div style="margin-bottom:2px;"><b>${String.fromCharCode(65+i)}.</b> ${mathToText(o)}</div>`
-      ).join('') + '</div>'
+    for (let i = 0; i < q.options.length; i++) {
+      const optRuns = parseLatexText(q.options[i])
+      paras.push(new Paragraph({
+        indent: { left: 576 }, // 2em
+        spacing: { after: 40 },
+        children: [
+          new TextRun({ text: `${String.fromCharCode(65 + i)}. `, bold: true, size: 22, font: 'SimSun' }),
+          ...optRuns,
+        ],
+      }))
+    }
   }
 
-  return '<div style="margin-bottom:16px;">' +
-    `<div style="margin-bottom:6px;"><b>${num}.</b> ${mathToText(q.stem)}</div>` +
-    opts + fig +
-    `<div style="height:${(q.answerArea||3)*28}px;margin-top:8px;"></div></div>`
-}
-
-/** 把含LaTeX的文本转成Word可读的纯文本 */
-function mathToText(text: string): string {
-  if (!text) return ''
-  let r = text
-  r = r.replace(/\$\$([\s\S]*?)\$\$/g, (_, m) => tex2uni(m.trim()))
-  r = r.replace(/\$([^\$\n]+?)\$/g, (_, m) => tex2uni(m.trim()))
-  r = r.replace(/\\\[([\s\S]*?)\\\]/g, (_, m) => tex2uni(m.trim()))
-  r = r.replace(/\\\(([\s\S]*?)\\\)/g, (_, m) => tex2uni(m.trim()))
-  return esc(r)
-}
-
-/** LaTeX → Unicode纯文本 */
-function tex2uni(t: string): string {
-  // 希腊字母
-  const g: Record<string,string> = {
-    '\\Alpha':'Α','\\Beta':'Β','\\Gamma':'Γ','\\Delta':'Δ','\\Theta':'Θ',
-    '\\Lambda':'Λ','\\Xi':'Ξ','\\Pi':'Π','\\Sigma':'Σ','\\Phi':'Φ',
-    '\\Psi':'Ψ','\\Omega':'Ω',
-    '\\alpha':'α','\\beta':'β','\\gamma':'γ','\\delta':'δ',
-    '\\epsilon':'ε','\\varepsilon':'ε','\\zeta':'ζ','\\eta':'η',
-    '\\theta':'θ','\\iota':'ι','\\kappa':'κ','\\lambda':'λ',
-    '\\mu':'μ','\\nu':'ν','\\xi':'ξ','\\pi':'π','\\rho':'ρ',
-    '\\sigma':'σ','\\tau':'τ','\\phi':'φ','\\varphi':'φ',
-    '\\chi':'χ','\\psi':'ψ','\\omega':'ω',
+  // 图形提示（SVG 暂不嵌入，添加提示文本）
+  if (q.figure && q.figure.trim().startsWith('<svg')) {
+    paras.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 120, after: 120 },
+      children: [
+        new TextRun({
+          text: '[题目包含图形，请参考网页版或PDF版本]',
+          size: 20,
+          font: 'SimSun',
+          color: '999999',
+          italics: true,
+        }),
+      ],
+    }))
   }
-  for (const [k,v] of Object.entries(g).sort((a,b)=>b[0].length-a[0].length))
+
+  // 答题留白区域
+  const answerLines = q.answerArea || 3
+  for (let i = 0; i < answerLines; i++) {
+    paras.push(new Paragraph({
+      spacing: { after: 200 },
+      children: [new TextRun({ text: '', size: 22 })],
+    }))
+  }
+
+  return paras
+}
+
+/**
+ * 解析包含 LaTeX 的文本，返回 TextRun 数组
+ * 将 LaTeX 公式转换为 Unicode 近似表示
+ */
+function parseLatexText(text: string): TextRun[] {
+  if (!text) return [new TextRun({ text: '', size: 22, font: 'SimSun' })]
+
+  const runs: TextRun[] = []
+  let lastIndex = 0
+
+  // 匹配所有 LaTeX 公式：$$...$$, $...$, \[...\], \(...\)
+  const regex = /\$\$([\s\S]*?)\$\$|\$([^\$\n]+?)\$|\\\[([\s\S]*?)\\\]|\\\(([\s\S]*?)\\\)/g
+  let match: RegExpExecArray | null
+
+  while ((match = regex.exec(text)) !== null) {
+    // 添加公式前的普通文本
+    if (match.index > lastIndex) {
+      const plainText = text.substring(lastIndex, match.index)
+      runs.push(new TextRun({ text: plainText, size: 22, font: 'SimSun' }))
+    }
+
+    // 转换 LaTeX 公式
+    const latex = match[1] || match[2] || match[3] || match[4] || ''
+    const unicode = latexToUnicode(latex.trim())
+    runs.push(new TextRun({ text: unicode, size: 22, font: 'Cambria Math' }))
+
+    lastIndex = regex.lastIndex
+  }
+
+  // 添加剩余的普通文本
+  if (lastIndex < text.length) {
+    runs.push(new TextRun({ text: text.substring(lastIndex), size: 22, font: 'SimSun' }))
+  }
+
+  return runs.length > 0 ? runs : [new TextRun({ text, size: 22, font: 'SimSun' })]
+}
+
+/**
+ * 将 LaTeX 转换为 Unicode 近似表示
+ * 改进版本，支持更多符号和更好的格式
+ */
+function latexToUnicode(tex: string): string {
+  let t = tex
+
+  // 希腊字母（大写）
+  const greekUpper: Record<string, string> = {
+    '\\Alpha': 'Α', '\\Beta': 'Β', '\\Gamma': 'Γ', '\\Delta': 'Δ',
+    '\\Epsilon': 'Ε', '\\Zeta': 'Ζ', '\\Eta': 'Η', '\\Theta': 'Θ',
+    '\\Iota': 'Ι', '\\Kappa': 'Κ', '\\Lambda': 'Λ', '\\Mu': 'Μ',
+    '\\Nu': 'Ν', '\\Xi': 'Ξ', '\\Omicron': 'Ο', '\\Pi': 'Π',
+    '\\Rho': 'Ρ', '\\Sigma': 'Σ', '\\Tau': 'Τ', '\\Upsilon': 'Υ',
+    '\\Phi': 'Φ', '\\Chi': 'Χ', '\\Psi': 'Ψ', '\\Omega': 'Ω',
+  }
+
+  // 希腊字母（小写）
+  const greekLower: Record<string, string> = {
+    '\\alpha': 'α', '\\beta': 'β', '\\gamma': 'γ', '\\delta': 'δ',
+    '\\epsilon': 'ε', '\\varepsilon': 'ε', '\\zeta': 'ζ', '\\eta': 'η',
+    '\\theta': 'θ', '\\vartheta': 'ϑ', '\\iota': 'ι', '\\kappa': 'κ',
+    '\\lambda': 'λ', '\\mu': 'μ', '\\nu': 'ν', '\\xi': 'ξ',
+    '\\omicron': 'ο', '\\pi': 'π', '\\varpi': 'ϖ', '\\rho': 'ρ',
+    '\\varrho': 'ϱ', '\\sigma': 'σ', '\\varsigma': 'ς', '\\tau': 'τ',
+    '\\upsilon': 'υ', '\\phi': 'φ', '\\varphi': 'φ', '\\chi': 'χ',
+    '\\psi': 'ψ', '\\omega': 'ω',
+  }
+
+  // 按长度排序，避免短的先匹配导致长的无法匹配
+  for (const [k, v] of Object.entries({ ...greekUpper, ...greekLower }).sort((a, b) => b[0].length - a[0].length)) {
     t = t.split(k).join(v)
+  }
 
   // 运算符号
-  const s: Record<string,string> = {
-    '\\times':'×','\\div':'÷','\\pm':'±','\\mp':'∓',
-    '\\leq':'≤','\\geq':'≥','\\neq':'≠','\\approx':'≈',
-    '\\infty':'∞','\\cdot':'·','\\circ':'°',
-    '\\angle':'∠','\\triangle':'△','\\perp':'⊥','\\parallel':'∥',
-    '\\rightarrow':'→','\\leftarrow':'←','\\Rightarrow':'⇒',
-    '\\therefore':'∴','\\because':'∵',
-    '\\in':'∈','\\notin':'∉','\\subset':'⊂','\\cup':'∪','\\cap':'∩',
-    '\\emptyset':'∅','\\forall':'∀','\\exists':'∃',
-    '\\quad':' ','\\qquad':'  ','\\,':' ','\\;':' ','\\!':'',
-    '\\left':'','\\right':'','\\displaystyle':'',
+  const operators: Record<string, string> = {
+    '\\times': '×', '\\div': '÷', '\\pm': '±', '\\mp': '∓',
+    '\\leq': '≤', '\\le': '≤', '\\geq': '≥', '\\ge': '≥',
+    '\\neq': '≠', '\\ne': '≠', '\\approx': '≈', '\\equiv': '≡',
+    '\\infty': '∞', '\\cdot': '·', '\\circ': '°', '\\bullet': '•',
+    '\\angle': '∠', '\\triangle': '△', '\\perp': '⊥', '\\parallel': '∥',
+    '\\rightarrow': '→', '\\to': '→', '\\leftarrow': '←',
+    '\\Rightarrow': '⇒', '\\Leftarrow': '⇐', '\\Leftrightarrow': '⇔',
+    '\\therefore': '∴', '\\because': '∵',
+    '\\in': '∈', '\\notin': '∉', '\\subset': '⊂', '\\supset': '⊃',
+    '\\subseteq': '⊆', '\\supseteq': '⊇',
+    '\\cup': '∪', '\\cap': '∩', '\\emptyset': '∅',
+    '\\forall': '∀', '\\exists': '∃', '\\neg': '¬',
+    '\\sum': '∑', '\\prod': '∏', '\\int': '∫',
   }
-  for (const [k,v] of Object.entries(s)) t = t.split(k).join(v)
 
-  // 分数、根号
+  for (const [k, v] of Object.entries(operators)) {
+    t = t.split(k).join(v)
+  }
+
+  // 空格命令
+  t = t.replace(/\\quad/g, '  ')
+  t = t.replace(/\\qquad/g, '    ')
+  t = t.replace(/\\,/g, ' ')
+  t = t.replace(/\\;/g, ' ')
+  t = t.replace(/\\!/g, '')
+  t = t.replace(/\\:/g, ' ')
+
+  // 分数：\frac{a}{b} → (a/b)
   t = t.replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1/$2)')
-  t = t.replace(/\\sqrt\[([^\]]*)\]\{([^}]*)\}/g, '$1√$2')
+
+  // 根号：\sqrt[n]{x} → ⁿ√x, \sqrt{x} → √x
+  t = t.replace(/\\sqrt\[([^\]]*)\]\{([^}]*)\}/g, (_, n, x) => {
+    const superN = toSuperscript(n)
+    return `${superN}√${x}`
+  })
   t = t.replace(/\\sqrt\{([^}]*)\}/g, '√$1')
 
-  // 上标
-  const sup: Record<string,string> = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','n':'ⁿ','+':'⁺','-':'⁻'}
-  t = t.replace(/\^{([^}]*)}/g, (_,x) => [...x].map((c:string)=>sup[c]||c).join(''))
-  t = t.replace(/\^([0-9n])/g, (_,c) => sup[c]||c)
+  // 上标：^{...} 或 ^x
+  t = t.replace(/\^{([^}]*)}/g, (_, x) => toSuperscript(x))
+  t = t.replace(/\^([0-9a-zA-Z])/g, (_, c) => toSuperscript(c))
 
-  // 下标
-  const sub: Record<string,string> = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','n':'ₙ','i':'ᵢ'}
-  t = t.replace(/_{([^}]*)}/g, (_,x) => [...x].map((c:string)=>sub[c]||c).join(''))
-  t = t.replace(/_([0-9n])/g, (_,c) => sub[c]||c)
+  // 下标：_{...} 或 _x
+  t = t.replace(/_{([^}]*)}/g, (_, x) => toSubscript(x))
+  t = t.replace(/_([0-9a-zA-Z])/g, (_, c) => toSubscript(c))
 
-  // 函数名、文本命令
-  t = t.replace(/\\(sin|cos|tan|log|ln|lim|max|min|sum|prod|int)\b/g, '$1')
-  t = t.replace(/\\(?:text|mathrm|mathbf)\{([^}]*)\}/g, '$1')
+  // 函数名
+  t = t.replace(/\\(sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|sinh|cosh|tanh|log|ln|lg|exp|lim|max|min|sup|inf)\b/g, '$1')
+
+  // 文本命令
+  t = t.replace(/\\(?:text|mathrm|mathbf|mathit|mathsf|mathtt)\{([^}]*)\}/g, '$1')
+
+  // 上划线、向量
   t = t.replace(/\\overline\{([^}]*)\}/g, '$1̄')
   t = t.replace(/\\vec\{([^}]*)\}/g, '$1⃗')
+  t = t.replace(/\\hat\{([^}]*)\}/g, '$1̂')
+  t = t.replace(/\\tilde\{([^}]*)\}/g, '$1̃')
+
+  // 括号命令
+  t = t.replace(/\\left/g, '')
+  t = t.replace(/\\right/g, '')
+  t = t.replace(/\\big/g, '')
+  t = t.replace(/\\Big/g, '')
+  t = t.replace(/\\bigg/g, '')
+  t = t.replace(/\\Bigg/g, '')
+
+  // 其他命令
+  t = t.replace(/\\displaystyle/g, '')
+  t = t.replace(/\\limits/g, '')
+
+  // 清理多余的花括号和空格
   t = t.replace(/[{}]/g, '')
-  t = t.replace(/\s+/g, ' ').trim()
+  t = t.replace(/\s+/g, ' ')
+  t = t.trim()
+
   return t
 }
 
-function esc(t: string): string {
-  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+/** 转换为上标 Unicode */
+function toSuperscript(s: string): string {
+  const map: Record<string, string> = {
+    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+    'a': 'ᵃ', 'b': 'ᵇ', 'c': 'ᶜ', 'd': 'ᵈ', 'e': 'ᵉ',
+    'f': 'ᶠ', 'g': 'ᵍ', 'h': 'ʰ', 'i': 'ⁱ', 'j': 'ʲ',
+    'k': 'ᵏ', 'l': 'ˡ', 'm': 'ᵐ', 'n': 'ⁿ', 'o': 'ᵒ',
+    'p': 'ᵖ', 'r': 'ʳ', 's': 'ˢ', 't': 'ᵗ', 'u': 'ᵘ',
+    'v': 'ᵛ', 'w': 'ʷ', 'x': 'ˣ', 'y': 'ʸ', 'z': 'ᶻ',
+    '+': '⁺', '-': '⁻', '=': '⁼', '(': '⁽', ')': '⁾',
+  }
+  return [...s].map(c => map[c] || c).join('')
 }
+
+/** 转换为下标 Unicode */
+function toSubscript(s: string): string {
+  const map: Record<string, string> = {
+    '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+    '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
+    'a': 'ₐ', 'e': 'ₑ', 'h': 'ₕ', 'i': 'ᵢ', 'j': 'ⱼ',
+    'k': 'ₖ', 'l': 'ₗ', 'm': 'ₘ', 'n': 'ₙ', 'o': 'ₒ',
+    'p': 'ₚ', 'r': 'ᵣ', 's': 'ₛ', 't': 'ₜ', 'u': 'ᵤ',
+    'v': 'ᵥ', 'x': 'ₓ',
+    '+': '₊', '-': '₋', '=': '₌', '(': '₍', ')': '₎',
+  }
+  return [...s].map(c => map[c] || c).join('')
+}
+

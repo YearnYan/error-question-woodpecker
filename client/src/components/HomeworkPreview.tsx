@@ -15,10 +15,12 @@ interface Props {
   selectedQuestions: Set<string>
   isAppending: boolean
   progress: ProgressInfo | null
+  hasOriginalHomework: boolean
   onAppendGenerate: () => void
   onToggleSelectionMode: () => void
   onToggleQuestion: (questionId: string) => void
   onConfirmSelection: () => void
+  onBackToSelection: () => void
 }
 
 function getPrintStyles(): string {
@@ -118,10 +120,12 @@ export default function HomeworkPreview({
   selectedQuestions,
   isAppending,
   progress,
+  hasOriginalHomework,
   onAppendGenerate,
   onToggleSelectionMode,
   onToggleQuestion,
   onConfirmSelection,
+  onBackToSelection,
 }: Props) {
   const sheetRef = useRef<HTMLDivElement>(null)
   const [showAnswers, setShowAnswers] = useState(false)
@@ -144,7 +148,7 @@ export default function HomeworkPreview({
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `举一反三练习_${homework.subject}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.doc`
+      a.download = `举一反三练习_${homework.subject}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.docx`
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
@@ -194,7 +198,7 @@ export default function HomeworkPreview({
           作业试卷预览
         </h2>
         <div className="flex items-center gap-2">
-          {!selectionMode ? (
+          {!selectionMode && !hasOriginalHomework ? (
             <>
               <button
                 onClick={() => setShowAnswers(!showAnswers)}
@@ -242,6 +246,52 @@ export default function HomeworkPreview({
                   <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 选择题目
+              </button>
+              <button
+                onClick={handleExportWord}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                下载 WORD
+              </button>
+              <button
+                onClick={handleExportPDF}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                下载 PDF
+              </button>
+            </>
+          ) : !selectionMode && hasOriginalHomework ? (
+            <>
+              <button
+                onClick={() => setShowAnswers(!showAnswers)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  showAnswers
+                    ? 'text-white bg-amber-500 hover:bg-amber-600'
+                    : 'text-gray-600 bg-gray-100 hover:bg-gray-200'
+                }`}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  {showAnswers
+                    ? <path d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M3 3l18 18" strokeLinecap="round" strokeLinejoin="round"/>
+                    : <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" strokeLinecap="round" strokeLinejoin="round"/>
+                  }
+                </svg>
+                {showAnswers ? '隐藏答案' : '显示答案和解析'}
+              </button>
+              <button
+                onClick={onBackToSelection}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 17l-5-5m0 0l5-5m-5 5h12" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                返回选题
               </button>
               <button
                 onClick={handleExportWord}

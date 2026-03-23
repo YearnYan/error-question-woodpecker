@@ -24,6 +24,7 @@ function App() {
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set())
   const [isAppending, setIsAppending] = useState(false)
+  const [originalHomework, setOriginalHomework] = useState<HomeworkData | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -184,6 +185,23 @@ function App() {
   const handleAppendGenerate = useCallback(async () => {
     if (!image || !analysis || !homework) return
 
+    // 立即添加占位题目，让用户看到"新题目生成中"的提示
+    const placeholderQuestion = {
+      stem: '新题目生成中...',
+      options: [],
+      answerArea: 3,
+      answer: '',
+      solution: '',
+    }
+
+    const homeworkWithPlaceholders: HomeworkData = {
+      ...homework,
+      similar: [...homework.similar, placeholderQuestion, placeholderQuestion, placeholderQuestion],
+      variant: [...homework.variant, placeholderQuestion, placeholderQuestion, placeholderQuestion],
+      comprehensive: [...homework.comprehensive, placeholderQuestion, placeholderQuestion, placeholderQuestion],
+    }
+
+    setHomework(homeworkWithPlaceholders)
     setIsAppending(true)
     setError('')
     setProgress({ phase: 'starting', message: '正在生成更多题目...', percent: 5 })
@@ -290,6 +308,9 @@ function App() {
   const handleConfirmSelection = useCallback(() => {
     if (!homework || selectedQuestions.size === 0) return
 
+    // 保存原始数据，以便返回选题
+    setOriginalHomework(homework)
+
     const filtered: HomeworkData = {
       ...homework,
       similar: homework.similar.filter((_, idx) => selectedQuestions.has(`similar-${idx}`)),
@@ -301,6 +322,15 @@ function App() {
     setSelectionMode(false)
     setSelectedQuestions(new Set())
   }, [homework, selectedQuestions])
+
+  // 返回选题模式
+  const handleBackToSelection = useCallback(() => {
+    if (!originalHomework) return
+    setHomework(originalHomework)
+    setOriginalHomework(null)
+    setSelectionMode(true)
+    setSelectedQuestions(new Set())
+  }, [originalHomework])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -478,10 +508,12 @@ function App() {
                   selectedQuestions={selectedQuestions}
                   isAppending={isAppending}
                   progress={progress}
+                  hasOriginalHomework={!!originalHomework}
                   onAppendGenerate={handleAppendGenerate}
                   onToggleSelectionMode={handleToggleSelectionMode}
                   onToggleQuestion={handleToggleQuestion}
                   onConfirmSelection={handleConfirmSelection}
+                  onBackToSelection={handleBackToSelection}
                 />
               </div>
             ) : (

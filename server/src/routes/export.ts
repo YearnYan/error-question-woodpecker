@@ -50,9 +50,9 @@ router.post('/word', async (req, res) => {
 
     const buffer = await exportToWord(homework)
 
-    const filename = `举一反三练习_${homework.subject}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.doc`
+    const filename = `举一反三练习_${homework.subject}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.docx`
 
-    res.setHeader('Content-Type', 'application/msword')
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`)
     res.setHeader('Content-Length', buffer.length)
 
