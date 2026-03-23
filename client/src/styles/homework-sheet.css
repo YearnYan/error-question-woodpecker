@@ -99,15 +99,10 @@
   margin-bottom: 2px;
 }
 
-/* 答题区域（横线） */
+/* 答题区域（空白） */
 .answer-area {
   margin-top: 8px;
   padding-top: 4px;
-}
-.answer-line {
-  border-bottom: 1px solid #ccc;
-  height: 28px;
-  width: 100%;
 }
 
 /* 图形区域 */

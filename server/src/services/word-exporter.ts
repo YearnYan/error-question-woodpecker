@@ -67,7 +67,7 @@ function questionHTML(q: GeneratedQuestion, num: number): string {
   return '<div style="margin-bottom:16px;">' +
     `<div style="margin-bottom:6px;"><b>${num}.</b> ${mathToText(q.stem)}</div>` +
     opts + fig +
-    `<div style="height:${(q.answerArea||3)*28}px;"></div></div>`
+    `<div style="height:${(q.answerArea||3)*28}px;margin-top:8px;"></div></div>`
 }
 
 /** 把含LaTeX的文本转成Word可读的纯文本 */

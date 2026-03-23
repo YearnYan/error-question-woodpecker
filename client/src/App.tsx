@@ -24,6 +24,7 @@ function App() {
   const abortRef = useRef<AbortController | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+
   // Timer for loading states
   useEffect(() => {
     if (loadingState !== 'idle') {
@@ -36,8 +37,6 @@ function App() {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [loadingState])
 
-  const autoGenerateRef = useRef(false)
-
   const handleImageUpload = useCallback((uploaded: UploadedImage) => {
     setImage(uploaded)
     setAnalysis(null)
@@ -45,31 +44,13 @@ function App() {
     setError('')
   }, [])
 
-  const handleAnalyze = useCallback(async () => {
-    if (!image) return
-    setLoadingState('analyzing')
-    setError('')
-    setAnalysis(null)
-
-    try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: image.base64 }),
-      })
-      const data = await res.json()
-      if (!data.success) throw new Error(data.error || '分析失败')
-      autoGenerateRef.current = true
-      setAnalysis(data.data)
-    } catch (err: any) {
-      setError(err.message || '分析请求失败，请重试')
-    } finally {
-      setLoadingState('idle')
+  // Core generation logic — accepts explicit params to avoid stale closures
+  const doGenerate = useCallback(async (img: UploadedImage, anal: AnalysisResult) => {
+    if (!img || !anal) {
+      console.error('[App] doGenerate called with missing params:', { img: !!img, anal: !!anal })
+      return
     }
-  }, [image])
 
-  const handleGenerate = useCallback(async () => {
-    if (!analysis || !image) return
     setLoadingState('generating')
     setError('')
     setHomework(null)
@@ -82,7 +63,7 @@ function App() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: image.base64, analysis }),
+        body: JSON.stringify({ image: img.base64, analysis: anal }),
         signal: abort.signal,
       })
 
@@ -104,9 +85,8 @@ function App() {
 
         buffer += decoder.decode(value, { stream: true })
 
-        // Parse SSE events from buffer
         const lines = buffer.split('\n')
-        buffer = lines.pop() || '' // Keep incomplete line in buffer
+        buffer = lines.pop() || ''
 
         let eventType = ''
         for (const line of lines) {
@@ -120,12 +100,10 @@ function App() {
               if (eventType === 'progress') {
                 setProgress(data)
               } else if (eventType === 'questions') {
-                // Questions ready (without figures) — show immediately
                 currentHomework = { ...data }
                 setHomework({ ...data })
                 setMobileView('right')
               } else if (eventType === 'figure') {
-                // Individual figure arrived — patch into homework
                 if (currentHomework) {
                   const { section, index, svg } = data
                   const sectionArr = currentHomework[section as keyof HomeworkData] as any[]
@@ -143,7 +121,6 @@ function App() {
               }
             } catch (parseErr: any) {
               if (parseErr.message?.includes('生成失败')) throw parseErr
-              // Ignore JSON parse errors for incomplete data
             }
             eventType = ''
           }
@@ -158,15 +135,37 @@ function App() {
       setProgress(null)
       abortRef.current = null
     }
-  }, [analysis, image])
+  }, [])
 
-  // Auto-generate homework after analysis completes
-  useEffect(() => {
-    if (analysis && image && !homework && autoGenerateRef.current) {
-      autoGenerateRef.current = false
-      handleGenerate()
+  const handleAnalyze = useCallback(async () => {
+    if (!image) return
+    setLoadingState('analyzing')
+    setError('')
+    setAnalysis(null)
+
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: image.base64 }),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || '分析失败')
+      const analysisResult = data.data as AnalysisResult
+      setAnalysis(analysisResult)
+      // Directly trigger generation — no useEffect, no ref, no race condition
+      doGenerate(image, analysisResult)
+    } catch (err: any) {
+      setError(err.message || '分析请求失败，请重试')
+      setLoadingState('idle')
     }
-  }, [analysis, image, homework, handleGenerate])
+  }, [image, doGenerate])
+
+  // Manual generate button handler
+  const handleGenerate = useCallback(() => {
+    if (!analysis || !image) return
+    doGenerate(image, analysis)
+  }, [analysis, image, doGenerate])
 
   const handleReset = useCallback(() => {
     setImage(null)
