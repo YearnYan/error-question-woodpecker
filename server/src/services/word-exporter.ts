@@ -1,7 +1,8 @@
 import {
   Document, Packer, Paragraph, TextRun, AlignmentType,
-  BorderStyle, TabStopPosition, TabStopType,
+  BorderStyle, ImageRun, TabStopPosition, TabStopType,
 } from 'docx'
+import sharp from 'sharp'
 import type { HomeworkData, GeneratedQuestion } from './generator.js'
 
 const SECTIONS = [
@@ -86,10 +87,11 @@ export async function exportToWord(homework: HomeworkData): Promise<Buffer> {
       ],
     }))
 
-    // 题目
+    // 题目（异步处理图片）
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i]
-      children.push(...buildQuestionParagraphs(q, i + 1))
+      const qParas = await buildQuestionParagraphs(q, i + 1)
+      children.push(...qParas)
     }
   }
 
@@ -117,7 +119,7 @@ export async function exportToWord(homework: HomeworkData): Promise<Buffer> {
   return await Packer.toBuffer(doc)
 }
 
-function buildQuestionParagraphs(q: GeneratedQuestion, num: number): Paragraph[] {
+async function buildQuestionParagraphs(q: GeneratedQuestion, num: number): Promise<Paragraph[]> {
   const paras: Paragraph[] = []
 
   // 题干
@@ -145,21 +147,57 @@ function buildQuestionParagraphs(q: GeneratedQuestion, num: number): Paragraph[]
     }
   }
 
-  // 图形提示（SVG 暂不嵌入，添加提示文本）
+  // 图形嵌入（SVG → PNG → Word）
   if (q.figure && q.figure.trim().startsWith('<svg')) {
-    paras.push(new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { before: 120, after: 120 },
-      children: [
-        new TextRun({
-          text: '[题目包含图形，请参考网页版或PDF版本]',
-          size: 20,
-          font: 'SimSun',
-          color: '999999',
-          italics: true,
-        }),
-      ],
-    }))
+    try {
+      const svgStr = q.figure.trim()
+
+      // 从 SVG 中提取宽高
+      const wMatch = svgStr.match(/width="(\d+)"/)
+      const hMatch = svgStr.match(/height="(\d+)"/)
+      const vbMatch = svgStr.match(/viewBox="[^"]*\s(\d+)\s(\d+)"/)
+      const svgW = wMatch ? parseInt(wMatch[1]) : vbMatch ? parseInt(vbMatch[1]) : 400
+      const svgH = hMatch ? parseInt(hMatch[1]) : vbMatch ? parseInt(vbMatch[2]) : 300
+
+      // 使用 sharp 将 SVG 转换为 PNG，设置密度以提高清晰度
+      const pngBuffer = await sharp(Buffer.from(svgStr, 'utf-8'), { density: 150 })
+        .png()
+        .toBuffer()
+
+      // 限制最大宽度为 450pt，等比缩放
+      const maxW = 450
+      const scale = svgW > maxW ? maxW / svgW : 1
+      const displayW = Math.round(svgW * scale)
+      const displayH = Math.round(svgH * scale)
+
+      paras.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 120, after: 120 },
+        children: [
+          new ImageRun({
+            type: 'png',
+            data: pngBuffer,
+            transformation: { width: displayW, height: displayH },
+          } as any), // 类型断言避免 docx 库的类型定义问题
+        ],
+      }))
+    } catch (err) {
+      console.error('[WordExport] Failed to embed figure:', err)
+      // 如果转换失败，添加提示文本
+      paras.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 120, after: 120 },
+        children: [
+          new TextRun({
+            text: '[图形转换失败]',
+            size: 20,
+            font: 'SimSun',
+            color: '999999',
+            italics: true,
+          }),
+        ],
+      }))
+    }
   }
 
   // 答题留白区域
