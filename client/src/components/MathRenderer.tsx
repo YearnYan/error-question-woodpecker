@@ -37,7 +37,7 @@ function renderMathInText(text: string): string {
 
   // Fix double-escaped LaTeX: \\frac -> \frac, \\sqrt -> \sqrt, etc.
   // This handles cases where JSON parsing preserved double backslashes
-  result = result.replace(/\\\\(frac|sqrt|theta|alpha|beta|gamma|delta|pi|omega|times|div|pm|leq|geq|neq|approx|sin|cos|tan|log|ln|lim|sum|prod|int|infty|cdot|circ|angle|triangle|perp|parallel|vec|overline|overrightarrow|hat|bar|dot|ddot|text|mathrm|mathbf|left|right|begin|end|quad|qquad|hspace|vspace|displaystyle)/g, '\\$1')
+  result = result.replace(/\\\\(frac|sqrt|theta|alpha|beta|gamma|delta|pi|omega|Omega|Theta|Delta|Gamma|Pi|Sigma|Lambda|Phi|Psi|Xi|times|div|pm|leq|geq|neq|approx|sin|cos|tan|log|ln|lim|sum|prod|int|infty|cdot|circ|angle|triangle|perp|parallel|vec|overline|overrightarrow|hat|bar|dot|ddot|text|mathrm|mathbf|left|right|begin|end|quad|qquad|hspace|vspace|displaystyle|rightarrow|leftarrow|Rightarrow|therefore|because|in|notin|subset|supset|cup|cap|emptyset|forall|exists)/g, '\\$1')
 
   // Detect bare LaTeX commands not wrapped in $...$ and wrap them
   // Match patterns like \frac{...}{...}, \sqrt{...}, etc. that are NOT inside $...$
@@ -123,10 +123,10 @@ function wrapBareLatex(text: string): string {
   })
 
   // Now check if there are bare LaTeX commands
-  const latexCmdPattern = /\\(frac|sqrt|theta|alpha|beta|gamma|delta|pi|omega|times|div|pm|leq|geq|neq|approx|sin|cos|tan|log|ln|lim|sum|prod|int|infty|cdot|circ|angle|triangle|perp|parallel|vec|overline|overrightarrow)\b/
+  const latexCmdPattern = /\\(frac|sqrt|theta|alpha|beta|gamma|delta|pi|omega|Omega|Theta|Delta|Gamma|Pi|Sigma|Lambda|Phi|Psi|Xi|times|div|pm|leq|geq|neq|approx|sin|cos|tan|log|ln|lim|sum|prod|int|infty|cdot|circ|angle|triangle|perp|parallel|vec|overline|overrightarrow|rightarrow|leftarrow|Rightarrow|therefore|because)\b/
   if (latexCmdPattern.test(temp)) {
     // Wrap sequences of LaTeX commands and their arguments in $...$
-    temp = temp.replace(/(\\(?:frac|sqrt|theta|alpha|beta|gamma|delta|pi|omega|times|div|pm|leq|geq|neq|approx|sin|cos|tan|log|ln|lim|sum|prod|int|infty|cdot|circ|angle|triangle|perp|parallel|vec|overline|overrightarrow)(?:\{[^}]*\})*(?:\[[^\]]*\])?(?:\{[^}]*\})*(?:[_^]\{[^}]*\})*)/g, (match) => {
+    temp = temp.replace(/(\\(?:frac|sqrt|theta|alpha|beta|gamma|delta|pi|omega|Omega|Theta|Delta|Gamma|Pi|Sigma|Lambda|Phi|Psi|Xi|times|div|pm|leq|geq|neq|approx|sin|cos|tan|log|ln|lim|sum|prod|int|infty|cdot|circ|angle|triangle|perp|parallel|vec|overline|overrightarrow|rightarrow|leftarrow|Rightarrow|therefore|because)(?:\{[^}]*\})*(?:\[[^\]]*\])?(?:\{[^}]*\})*(?:[_^]\{[^}]*\})*)/g, (match) => {
       return `$${match}$`
     })
   }

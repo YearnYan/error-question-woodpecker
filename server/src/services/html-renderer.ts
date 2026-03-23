@@ -1,3 +1,4 @@
+import katex from 'katex'
 import type { HomeworkData, GeneratedQuestion } from './generator.js'
 
 const SECTION_CONFIG = [
@@ -7,12 +8,14 @@ const SECTION_CONFIG = [
 ]
 
 /**
- * Render homework to HTML (matches HomeworkSheet.tsx exactly)
- * @param forWord - if true, convert SVG to base64 <img> for Word compatibility
+ * Render homework to HTML
+ * @param forWord - if true, pre-render math server-side for Word compatibility
  */
 export function renderHomeworkHTML(homework: HomeworkData, forWord = false): string {
   const today = new Date()
   const dateStr = `${today.getFullYear()} 年 ${today.getMonth() + 1} 月 ${today.getDate()} 日`
+
+  const mathRenderer = forWord ? renderMathTextForWord : renderMathTextForBrowser
 
   return `
 <!DOCTYPE html>
@@ -21,14 +24,13 @@ export function renderHomeworkHTML(homework: HomeworkData, forWord = false): str
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${homework.subject}举一反三练习</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+${forWord ? '' : '  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">'}
   <style>
 ${getHomeworkCSS()}
   </style>
 </head>
 <body>
   <div class="homework-sheet">
-    <!-- 页眉 -->
     <div class="homework-header">
       <div class="title">${homework.subject}举一反三练习</div>
       <div class="subtitle">基于错题的巩固提升训练</div>
@@ -39,65 +41,52 @@ ${getHomeworkCSS()}
       </div>
     </div>
 
-    <!-- 原题考点提示 -->
     <div style="font-size: 9pt; color: #666; margin-bottom: 12px; padding: 6px 10px; background: #f9f9f9; border-left: 3px solid #333;">
       原题考点：${escapeHtml(homework.originalQuestion)}
     </div>
 
-    <!-- 三类题目 -->
 ${SECTION_CONFIG.map((section, sectionIdx) => {
   const questions = homework[section.key] as GeneratedQuestion[]
   if (!questions || questions.length === 0) return ''
-
   return `
     ${sectionIdx > 0 ? '<hr class="section-divider" />' : ''}
     <div class="section-title">
       <span class="section-badge">${section.badge}</span>
       ${section.numPrefix}、${section.label}
     </div>
-${questions.map((q, qIdx) => renderQuestion(q, qIdx + 1, forWord)).join('\n')}
+${questions.map((q, qIdx) => renderQuestion(q, qIdx + 1, forWord, mathRenderer)).join('\n')}
   `
 }).join('')}
 
-    <!-- 页脚 -->
     <div class="homework-footer">
       错题啄木鸟 - 举一反三练习 | 第 1 页
     </div>
   </div>
-
+${forWord ? '' : `
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script>
-    // Render all math after page load
     document.addEventListener('DOMContentLoaded', function() {
       document.querySelectorAll('[data-math]').forEach(function(el) {
-        const tex = el.getAttribute('data-math') || ''
-        const display = el.getAttribute('data-display') === 'true'
+        var tex = el.getAttribute('data-math') || ''
+        var display = el.getAttribute('data-display') === 'true'
         try {
-          katex.render(tex, el, {
-            displayMode: display,
-            throwOnError: false,
-            trust: true,
-            strict: false
-          })
-        } catch (e) {
-          el.textContent = tex
-        }
+          katex.render(tex, el, { displayMode: display, throwOnError: false, trust: true, strict: false })
+        } catch (e) { el.textContent = tex }
       })
     })
   </script>
+`}
 </body>
 </html>
   `.trim()
 }
 
-function renderQuestion(question: GeneratedQuestion, number: number, forWord = false): string {
+function renderQuestion(question: GeneratedQuestion, number: number, forWord: boolean, mathRenderer: (t: string) => string): string {
   const hasFigure = question.figure && question.figure.trim().startsWith('<svg')
 
-  // For Word export, convert SVG to data URI <img> tag
   let figureHtml = ''
   if (hasFigure) {
     if (forWord) {
-      // Encode SVG as data URI for Word compatibility
       const svgBase64 = Buffer.from(question.figure!).toString('base64')
       figureHtml = `<img src="data:image/svg+xml;base64,${svgBase64}" style="max-width: 100%; max-height: 200px;" />`
     } else {
@@ -109,20 +98,18 @@ function renderQuestion(question: GeneratedQuestion, number: number, forWord = f
     <div class="question-block">
       <div class="question-stem">
         <span class="question-number">${number}.</span>
-        <span>${renderMathText(question.stem)}</span>
+        <span>${mathRenderer(question.stem)}</span>
       </div>
-
       ${question.options && question.options.length > 0 ? `
       <div class="question-options">
         ${question.options.map((opt, i) => `
         <div class="option-item">
           <span style="font-weight: bold; margin-right: 6px;">${String.fromCharCode(65 + i)}.</span>
-          <span>${renderMathText(opt)}</span>
+          <span>${mathRenderer(opt)}</span>
         </div>
         `).join('')}
       </div>
       ` : ''}
-
       ${hasFigure ? `
       <div class="figure-container" style="border: 1px solid #eee; border-radius: 4px; background: #fafafa;">
         <div style="width: 100%; display: flex; justify-content: center;">
@@ -130,49 +117,135 @@ function renderQuestion(question: GeneratedQuestion, number: number, forWord = f
         </div>
       </div>
       ` : ''}
-
       <div class="answer-area" style="height: ${(question.answerArea || 3) * 28}px;"></div>
     </div>
   `
 }
 
-function renderMathText(text: string): string {
+/** Browser version: uses data-math attributes for client-side KaTeX rendering */
+function renderMathTextForBrowser(text: string): string {
   if (!text) return ''
-
-  // Split text into math and non-math segments, only escape non-math parts
   let result = text
-
-  // Temporarily replace math delimiters with placeholders
   const mathBlocks: string[] = []
-  // $$...$$
+
   result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
     mathBlocks.push(`<span data-math="${escapeHtml(math.trim())}" data-display="true"></span>`)
     return `\x00MATH${mathBlocks.length - 1}\x00`
   })
-  // $...$
   result = result.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
     mathBlocks.push(`<span data-math="${escapeHtml(math.trim())}" data-display="false"></span>`)
     return `\x00MATH${mathBlocks.length - 1}\x00`
   })
-  // \[...\]
   result = result.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => {
     mathBlocks.push(`<span data-math="${escapeHtml(math.trim())}" data-display="true"></span>`)
     return `\x00MATH${mathBlocks.length - 1}\x00`
   })
-  // \(...\)
   result = result.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => {
     mathBlocks.push(`<span data-math="${escapeHtml(math.trim())}" data-display="false"></span>`)
     return `\x00MATH${mathBlocks.length - 1}\x00`
   })
 
-  // Escape non-math text
   result = escapeHtml(result)
-
-  // Restore math blocks
   result = result.replace(/\x00MATH(\d+)\x00/g, (_, idx) => mathBlocks[parseInt(idx)])
-
   result = result.replace(/\n/g, '<br/>')
   return result
+}
+
+/** Word version: converts LaTeX to Unicode plain text (Word can't run JS) */
+function renderMathTextForWord(text: string): string {
+  if (!text) return ''
+  let result = text
+
+  // Extract and convert math blocks
+  result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => latexToText(math.trim()))
+  result = result.replace(/\$([^\$\n]+?)\$/g, (_, math) => latexToText(math.trim()))
+  result = result.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => latexToText(math.trim()))
+  result = result.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => latexToText(math.trim()))
+
+  result = escapeHtml(result)
+  result = result.replace(/\n/g, '<br/>')
+  return result
+}
+
+/** Convert LaTeX to readable Unicode text for Word export */
+function latexToText(tex: string): string {
+  let t = tex
+  // Greek letters (uppercase first to avoid partial matches)
+  const greekMap: Record<string, string> = {
+    '\\Alpha': 'Α', '\\Beta': 'Β', '\\Gamma': 'Γ', '\\Delta': 'Δ',
+    '\\Epsilon': 'Ε', '\\Zeta': 'Ζ', '\\Eta': 'Η', '\\Theta': 'Θ',
+    '\\Iota': 'Ι', '\\Kappa': 'Κ', '\\Lambda': 'Λ', '\\Mu': 'Μ',
+    '\\Nu': 'Ν', '\\Xi': 'Ξ', '\\Pi': 'Π', '\\Rho': 'Ρ',
+    '\\Sigma': 'Σ', '\\Tau': 'Τ', '\\Upsilon': 'Υ', '\\Phi': 'Φ',
+    '\\Chi': 'Χ', '\\Psi': 'Ψ', '\\Omega': 'Ω',
+    '\\alpha': 'α', '\\beta': 'β', '\\gamma': 'γ', '\\delta': 'δ',
+    '\\epsilon': 'ε', '\\varepsilon': 'ε', '\\zeta': 'ζ', '\\eta': 'η',
+    '\\theta': 'θ', '\\vartheta': 'ϑ', '\\iota': 'ι', '\\kappa': 'κ',
+    '\\lambda': 'λ', '\\mu': 'μ', '\\nu': 'ν', '\\xi': 'ξ',
+    '\\pi': 'π', '\\rho': 'ρ', '\\sigma': 'σ', '\\tau': 'τ',
+    '\\upsilon': 'υ', '\\phi': 'φ', '\\varphi': 'φ', '\\chi': 'χ',
+    '\\psi': 'ψ', '\\omega': 'ω',
+  }
+  // Sort by length descending to match longer keys first
+  for (const [cmd, ch] of Object.entries(greekMap).sort((a, b) => b[0].length - a[0].length)) {
+    t = t.split(cmd).join(ch)
+  }
+
+  // Operators and symbols
+  const symbolMap: Record<string, string> = {
+    '\\times': '×', '\\div': '÷', '\\pm': '±', '\\mp': '∓',
+    '\\leq': '≤', '\\geq': '≥', '\\neq': '≠', '\\approx': '≈',
+    '\\infty': '∞', '\\cdot': '·', '\\circ': '°',
+    '\\angle': '∠', '\\triangle': '△', '\\perp': '⊥', '\\parallel': '∥',
+    '\\rightarrow': '→', '\\leftarrow': '←', '\\Rightarrow': '⇒',
+    '\\therefore': '∴', '\\because': '∵',
+    '\\in': '∈', '\\notin': '∉', '\\subset': '⊂', '\\supset': '⊃',
+    '\\cup': '∪', '\\cap': '∩', '\\emptyset': '∅',
+    '\\forall': '∀', '\\exists': '∃',
+    '\\quad': ' ', '\\qquad': '  ', '\\,': ' ', '\\;': ' ', '\\!': '',
+    '\\left': '', '\\right': '', '\\displaystyle': '',
+  }
+  for (const [cmd, ch] of Object.entries(symbolMap)) {
+    t = t.split(cmd).join(ch)
+  }
+
+  // Fractions: \frac{a}{b} → a/b
+  t = t.replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1/$2)')
+  // Square root: \sqrt{x} → √x, \sqrt[n]{x} → ⁿ√x
+  t = t.replace(/\\sqrt\[([^\]]*)\]\{([^}]*)\}/g, '$1√$2')
+  t = t.replace(/\\sqrt\{([^}]*)\}/g, '√$1')
+
+  // Superscripts
+  const supMap: Record<string, string> = {
+    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+    'n': 'ⁿ', '+': '⁺', '-': '⁻', '(': '⁽', ')': '⁾',
+  }
+  t = t.replace(/\^{([^}]*)}/g, (_, s) => [...s].map((c: string) => supMap[c] || c).join(''))
+  t = t.replace(/\^([0-9n])/g, (_, c) => supMap[c] || c)
+
+  // Subscripts
+  const subMap: Record<string, string> = {
+    '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+    '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
+    'n': 'ₙ', 'i': 'ᵢ', '+': '₊', '-': '₋', '(': '₍', ')': '₎',
+  }
+  t = t.replace(/_{([^}]*)}/g, (_, s) => [...s].map((c: string) => subMap[c] || c).join(''))
+  t = t.replace(/_([0-9n])/g, (_, c) => subMap[c] || c)
+
+  // Trig and log functions
+  t = t.replace(/\\(sin|cos|tan|log|ln|lim|max|min|sum|prod|int)\b/g, '$1')
+  // \text{...} and \mathrm{...}
+  t = t.replace(/\\(?:text|mathrm|mathbf)\{([^}]*)\}/g, '$1')
+  // \overline{x} → x̄
+  t = t.replace(/\\overline\{([^}]*)\}/g, '$1̄')
+  // \vec{x} → x⃗
+  t = t.replace(/\\vec\{([^}]*)\}/g, '$1⃗')
+  // Remove remaining braces
+  t = t.replace(/[{}]/g, '')
+  // Clean up extra spaces
+  t = t.replace(/\s+/g, ' ').trim()
+  return t
 }
 
 function escapeHtml(text: string): string {
@@ -186,7 +259,6 @@ function escapeHtml(text: string): string {
 
 function getHomeworkCSS(): string {
   return `
-/* 作业纸专用样式 - 模拟真实学校作业纸 */
 .homework-sheet {
   background: white;
   width: 210mm;
@@ -200,8 +272,6 @@ function getHomeworkCSS(): string {
   color: #000;
   position: relative;
 }
-
-/* 页眉区域 */
 .homework-header {
   text-align: center;
   border-bottom: 2px solid #000;
@@ -235,8 +305,6 @@ function getHomeworkCSS(): string {
   width: 80px;
   border-bottom: 1px solid #000;
 }
-
-/* 题目区块标题 */
 .section-title {
   font-size: 12pt;
   font-weight: bold;
@@ -255,8 +323,6 @@ function getHomeworkCSS(): string {
   font-weight: normal;
   vertical-align: middle;
 }
-
-/* 题目容器 */
 .question-block {
   margin-bottom: 16px;
   padding: 0;
@@ -277,14 +343,10 @@ function getHomeworkCSS(): string {
 .question-options .option-item {
   margin-bottom: 2px;
 }
-
-/* 答题区域（横线） */
 .answer-area {
   margin-top: 8px;
   padding-top: 4px;
 }
-
-/* 图形区域 */
 .figure-container {
   display: flex;
   justify-content: center;
@@ -296,8 +358,6 @@ function getHomeworkCSS(): string {
   max-width: 100%;
   max-height: 200px;
 }
-
-/* 页脚 */
 .homework-footer {
   position: absolute;
   bottom: 15mm;
@@ -307,15 +367,11 @@ function getHomeworkCSS(): string {
   font-size: 9pt;
   color: #999;
 }
-
-/* 分隔线 */
 .section-divider {
   border: none;
   border-top: 1px dashed #ccc;
   margin: 15px 0;
 }
-
-/* 打印样式 */
 @media print {
   .homework-sheet {
     box-shadow: none;
