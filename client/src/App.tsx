@@ -68,7 +68,7 @@ function App() {
       const res = await fetch(API_ENDPOINTS.generate, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: img.base64, analysis: anal }),
+        body: JSON.stringify({ analysis: anal }),
         signal: abort.signal,
       })
 

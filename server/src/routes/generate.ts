@@ -7,7 +7,7 @@ const router = Router()
 
 router.post('/', async (req, res) => {
   try {
-    const { image, analysis } = req.body
+    const { analysis } = req.body
 
     if (!analysis) {
       return res.status(400).json({ success: false, error: '缺少分析结果' })
